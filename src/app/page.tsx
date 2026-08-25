@@ -1,50 +1,64 @@
+import Image from "next/image";
 import Link from "next/link";
+
+import HeroCarousel from "./auth/components/HeroCarousel";
 
 const categories = [
   {
     name: "New Arrivals",
-    description: "Fresh styles just added",
+    description: "Freshly dropped cuts, seasonal fabrics, and trending patterns.",
+    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.19.jpeg",
   },
   {
-    name: "Men",
-    description: "Everyday essentials",
+    name: "Casual Wear",
+    description: "Relaxed button-downs, breathable linens, and everyday flannels.",
+    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.28.jpeg",
   },
   {
-    name: "Women",
-    description: "Modern styles",
+    name: "Formal & Office",
+    description: "Crisp dress shirts, sharp collars, and wrinkle-resistant fabrics.",
+    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.47.jpeg",
   },
   {
-    name: "Accessories",
-    description: "Complete your look",
+    name: "Oversized & Streetwear",
+    description: "Boxy fits, heavyweight cotton, and bold graphic statement pieces.",
+    image: "/photos/WhatsApp Image 2026-08-19 at 19.40.04.jpeg",
   },
 ];
+
+
 
 const featuredProducts = [
   {
     id: 1,
-    name: "Minimal Leather Sneaker",
-    category: "Footwear",
-    price: "$129",
+    name: "Classic Denim Overshirt",
+    category: "Casual Wear",
+    price: "$89",
+    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.25.jpeg",
   },
   {
     id: 2,
-    name: "Classic Overshirt",
-    category: "Men",
-    price: "$89",
+    name: "Premium Oxford Dress Shirt",
+    category: "Formal & Office",
+    price: "$99",
+    image: "/photos/red-shirt-front.webp",
   },
   {
     id: 3,
-    name: "Everyday Tote",
-    category: "Accessories",
-    price: "$69",
+    name: "Heavyweight Boxy Tee",
+    category: "Oversized & Streetwear",
+    price: "$45",
+    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.16.jpeg",
   },
   {
     id: 4,
-    name: "Relaxed Cotton Shirt",
-    category: "Women",
+    name: "Relaxed Linen Button-Down",
+    category: "New Arrivals",
     price: "$79",
+    image: "/photos/navy-blue3.jpg",
   },
 ];
+
 
 export default function HomePage() {
   return (
@@ -143,14 +157,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Hero visual placeholder */}
-          <div className="aspect-4/5 bg-secondary">
-            <div className="flex h-full items-center justify-center">
-              <span className="text-sm text-muted-foreground">
-                Hero Image
-              </span>
-            </div>
-          </div>
+          <HeroCarousel />
         </div>
       </section>
 
@@ -185,7 +192,16 @@ export default function HomePage() {
                   .replace(" ", "-")}`}
                 className="group bg-background p-8 transition hover:bg-secondary"
               >
-                <div className="mb-16 aspect-square bg-secondary" />
+                {/* Category Image */}
+                <div className="relative mb-8 aspect-square overflow-hidden bg-secondary">
+                  <Image
+                    src={category.image}
+                    alt={category.name}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                    className="object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                </div>
 
                 <h3 className="text-lg font-medium">
                   {category.name}
@@ -204,61 +220,67 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Featured Products */}
-      <section className="mx-auto max-w-7xl px-6 py-20 lg:px-8">
-        <div className="mb-10 flex items-end justify-between">
-          <div>
-            <p className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
-              Featured
-            </p>
 
-            <h2 className="mt-2 text-3xl font-medium tracking-tight">
-              Selected for you
-            </h2>
+{/* Featured Products */}
+<section className="mx-auto max-w-7xl px-6 py-20 lg:px-8">
+  <div className="mb-10 flex items-end justify-between">
+    <div>
+      <p className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
+        Featured
+      </p>
+
+      <h2 className="mt-2 text-3xl font-medium tracking-tight">
+        Selected for you
+      </h2>
+    </div>
+
+    <Link
+      href="/products"
+      className="text-sm underline underline-offset-4"
+    >
+      View all
+    </Link>
+  </div>
+
+  <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+    {featuredProducts.map((product) => (
+      <Link
+        key={product.id}
+        href={`/products/${product.id}`}
+        className="group"
+      >
+        {/* Product Image */}
+        <div className="relative aspect-[4/5] overflow-hidden bg-secondary">
+          <Image
+            src={product.image}
+            alt={product.name}
+            fill
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+            className="object-cover transition-transform duration-500 group-hover:scale-105"
+          />
+        </div>
+
+        {/* Product Details */}
+        <div className="mt-4 flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-medium">
+              {product.name}
+            </h3>
+
+            <p className="mt-1 text-sm text-muted-foreground">
+              {product.category}
+            </p>
           </div>
 
-          <Link
-            href="/products"
-            className="text-sm underline underline-offset-4"
-          >
-            View all
-          </Link>
+          <span className="text-sm font-medium">
+            {product.price}
+          </span>
         </div>
+      </Link>
+    ))}
+  </div>
+</section>
 
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {featuredProducts.map((product) => (
-            <Link
-              key={product.id}
-              href={`/products/${product.id}`}
-              className="group"
-            >
-              <div className="aspect-4/5 bg-secondary transition-opacity group-hover:opacity-80">
-                <div className="flex h-full items-center justify-center">
-                  <span className="text-sm text-muted-foreground">
-                    Product Image
-                  </span>
-                </div>
-              </div>
-
-              <div className="mt-4 flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="text-sm font-medium">
-                    {product.name}
-                  </h3>
-
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {product.category}
-                  </p>
-                </div>
-
-                <span className="text-sm font-medium">
-                  {product.price}
-                </span>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </section>
 
       {/* CTA */}
       <section className="bg-primary text-primary-foreground">
