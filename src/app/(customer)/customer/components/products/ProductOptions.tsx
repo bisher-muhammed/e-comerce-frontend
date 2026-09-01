@@ -4,7 +4,7 @@ import { Heart } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-import type { Product } from "@/app/customer/components/products/ProductCard";
+import type { Product } from "@/app/(customer)/customer/components/products/ProductCard";
 import { addToCart } from "@/app/services/customer/cart.service";
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
 

@@ -6,7 +6,7 @@ import Link from "next/link";
 
 import { getProductBySlug } from "@/app/services/customer/product.service";
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
-import type { Product } from "@/app/customer/components/products/ProductCard";
+import type { Product } from "@/app/(customer)/customer/components/products/ProductCard";
 
 import ProductGallery from "../../components/products/ProductGallery";
 import ProductOptions from "../../components/products/ProductOptions";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import ProductCard, { type Product } from "@/app/customer/components/products/ProductCard";
+import ProductCard, { type Product } from "@/app/(customer)/customer/components/products/ProductCard";
 import { getProducts } from "@/app/services/customer/product.service";
 
 interface RelatedProductsProps {
@@ -52,7 +52,9 @@ export default function RelatedProducts({
 
       <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
         {related.map((product) => (
-          <ProductCard key={product.id} product={product} />
+          <ProductCard key={product.id} product={product} isWishlisted={false} onWishlistChange={function (productId: number, isWishlisted: boolean): void {
+            throw new Error("Function not implemented.");
+          } } />
         ))}
       </div>
     </section>

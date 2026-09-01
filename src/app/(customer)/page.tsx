@@ -1,7 +1,8 @@
 import Image from "next/image";
 import Link from "next/link";
 
-import HeroCarousel from "./auth/components/HeroCarousel";
+import HeroCarousel from "@/app/auth/components/HeroCarousel";
+
 
 const categories = [
   {
@@ -63,64 +64,6 @@ const featuredProducts = [
 export default function HomePage() {
   return (
     <main className="min-h-screen bg-background text-foreground">
-      {/* Navbar */}
-      <header className="border-b border-border">
-        <div className="mx-auto flex h-20 max-w-7xl items-center justify-between px-6 lg:px-8">
-          <Link
-            href="/"
-            className="text-xl font-semibold tracking-tight"
-          >
-            STORE.
-          </Link>
-
-          <nav className="hidden items-center gap-8 md:flex">
-            <Link
-              href="/products"
-              className="text-sm text-muted-foreground transition hover:text-foreground"
-            >
-              Shop
-            </Link>
-
-            <Link
-              href="/products?category=new"
-              className="text-sm text-muted-foreground transition hover:text-foreground"
-            >
-              New Arrivals
-            </Link>
-
-            <Link
-              href="/products?category=men"
-              className="text-sm text-muted-foreground transition hover:text-foreground"
-            >
-              Men
-            </Link>
-
-            <Link
-              href="/products?category=women"
-              className="text-sm text-muted-foreground transition hover:text-foreground"
-            >
-              Women
-            </Link>
-          </nav>
-
-          <div className="flex items-center gap-5">
-            <Link
-              href="/login"
-              className="hidden text-sm md:block"
-            >
-              Login
-            </Link>
-
-            <Link
-              href="/cart"
-              className="text-sm"
-            >
-              Cart
-            </Link>
-          </div>
-        </div>
-      </header>
-
       {/* Hero */}
       <section className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
         <div className="grid items-center gap-12 lg:grid-cols-2">
@@ -307,18 +250,6 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-8 text-sm text-muted-foreground md:flex-row md:items-center md:justify-between lg:px-8">
-          <p>© 2026 STORE. All rights reserved.</p>
-
-          <div className="flex gap-6">
-            <Link href="/products">Shop</Link>
-            <Link href="/profile">Account</Link>
-            <Link href="/cart">Cart</Link>
-          </div>
-        </div>
-      </footer>
     </main>
   );
 }
