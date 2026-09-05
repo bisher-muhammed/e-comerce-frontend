@@ -194,13 +194,17 @@ export default function CartPage() {
           )}
 
           {/* No checkout route exists yet — this button is a placeholder */}
-          <button
-            type="button"
-            disabled={hasStockIssue}
-            className="mt-6 w-full rounded bg-black py-3 text-white disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Proceed to checkout
-          </button>
+          <Link
+  href="/checkout"
+  aria-disabled={hasStockIssue}
+  className={`mt-6 block w-full rounded bg-black py-3 text-center text-white ${
+    hasStockIssue
+      ? "pointer-events-none cursor-not-allowed opacity-40"
+      : ""
+  }`}
+>
+  Proceed to checkout
+</Link>
 
           {/* No payment integration exists — decorative only */}
           <button
