@@ -30,6 +30,13 @@ const navigation = [
     href: "/admin/products",
     icon: Package,
   },
+
+   {
+    label: "customers",
+    href: "/admin/customer",
+    icon: Package,
+  },
+  
   {
     label: "Orders",
     href: "/admin/orders",
@@ -40,11 +47,7 @@ const navigation = [
     href: "/admin/categories",
     icon: Tags,
   },
-  {
-    label: "Customers",
-    href: "/admin/customers",
-    icon: Users,
-  },
+  
   {
     label: "Sizes",
     href: "/admin/sizes",

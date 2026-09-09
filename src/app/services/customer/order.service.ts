@@ -2,7 +2,6 @@ import apiPrivate from "@/app/lib/api/apiPrivate";
 
 import {
     orderIdSchema,
-    orderItemParamsSchema,
     listOrdersSchema,
     cancelOrderSchema,
     cancelOrderItemSchema,
@@ -14,19 +13,42 @@ import {
 } from "@/app/validations/customer/order.validation";
 
 // ============================================================
+// API RESPONSE
+// ============================================================
+
+interface ApiResponse<T> {
+    success: boolean;
+    message?: string;
+    data: T;
+}
+
+// ============================================================
 // TYPES
 // ============================================================
 
 export interface OrderListItem {
     id: number;
+
     status: OrderStatus;
+
     paymentMethod: PaymentMethod;
+
     paymentStatus: PaymentStatus;
+
     subtotal: string;
+
     total: string;
+
+    // Meaningful mainly for PENDING + ONLINE orders.
+    expiresAt: string | null;
+
     createdAt: string;
+
     updatedAt: string;
-    _count: { items: number };
+
+    _count: {
+        items: number;
+    };
 }
 
 export interface OrderPagination {
@@ -41,27 +63,47 @@ export interface OrderListResponse {
     pagination: OrderPagination;
 }
 
+// ============================================================
+// ORDER IMAGE
+// ============================================================
+
 export interface OrderImage {
     url: string;
     altText: string | null;
 }
 
+// ============================================================
+// ORDER ITEM
+// ============================================================
+
 export interface OrderItem {
     id: number;
+
     productVariantId: number;
 
     productName: string;
+
     colorName: string;
+
     sizeName: string;
 
+    // Historical price captured when order was created.
     price: string;
 
-    // Immutable original quantity, for display/receipts.
+    // Original quantity purchased.
     quantity: number;
 
-    // Mutable — what's actually cancel/return-eligible right now.
+    // Current quantity still active.
+    //
+    // This decreases when:
+    // - cancelled
+    // - returned
     remainingQuantity: number;
+
+    // Quantity cancelled from this item.
     cancelledQuantity: number;
+
+    // Quantity returned from this item.
     returnedQuantity: number;
 
     createdAt: string;
@@ -73,57 +115,139 @@ export interface OrderItem {
     };
 }
 
-export interface OrderDetails {
+
+
+export interface OrderItemMutationResult {
     id: number;
-    status: OrderStatus;
-    paymentMethod: PaymentMethod;
-    paymentStatus: PaymentStatus;
 
-    shippingFirstName: string;
-    shippingLastName: string | null;
-    shippingPhone: string;
-    shippingLine1: string;
-    shippingLine2: string | null;
-    shippingCity: string;
-    shippingState: string;
-    shippingPostalCode: string;
-    shippingCountry: string;
+    remainingQuantity: number;
 
-    subtotal: string;
-    total: string;
+    cancelledQuantity: number;
 
-    createdAt: string;
+    returnedQuantity: number;
+
     updatedAt: string;
-
-    items: OrderItem[];
 }
 
-interface ApiResponse<T> {
-    success: boolean;
-    message?: string;
-    data: T;
+// ============================================================
+// ORDER DETAILS
+// ============================================================
+
+export interface OrderDetails {
+    id: number;
+
+    status: OrderStatus;
+
+    paymentMethod: PaymentMethod;
+
+    paymentStatus: PaymentStatus;
+
+    // ========================================================
+    // CONTACT SNAPSHOT
+    // ========================================================
+
+    contactEmail: string;
+
+    contactPhone: string;
+
+    // ========================================================
+    // SHIPPING SNAPSHOT
+    // ========================================================
+
+    shippingFirstName: string;
+
+    shippingLastName: string | null;
+
+    shippingPhone: string;
+
+    shippingLine1: string;
+
+    shippingLine2: string | null;
+
+    shippingCity: string;
+
+    shippingState: string;
+
+    shippingPostalCode: string;
+
+    shippingCountry: string;
+
+    // ========================================================
+    // FINANCIAL VALUES
+    // ========================================================
+
+    subtotal: string;
+
+    total: string;
+
+    // Amount removed from the order because of cancellation.
+    cancelledAmount: string;
+
+    // Actual refund amount recorded by the refund process.
+    refundedAmount: string;
+
+    // ========================================================
+    // CANCELLATION
+    // ========================================================
+
+    cancellationReason: string | null;
+
+    // ========================================================
+    // PAYMENT WINDOW
+    // ========================================================
+
+    // Relevant mainly for PENDING + ONLINE.
+    expiresAt: string | null;
+
+    // ========================================================
+    // TIMESTAMPS
+    // ========================================================
+
+    createdAt: string;
+
+    updatedAt: string;
+
+    // ========================================================
+    // ITEMS
+    // ========================================================
+
+    items: OrderItem[];
 }
 
 // ============================================================
 // IDEMPOTENCY KEY
 // ============================================================
+//
+// Generate this ONCE when the user starts an action.
+//
+// Example:
+//
+// const key = newIdempotencyKey();
+//
+// await cancelOrder(orderId, key, reason);
+//
+// If the same request must be retried, reuse `key`.
+//
+// DO NOT generate a new key for every retry.
+//
 
-// One key per user-initiated action. Callers generate this once per
-// click and pass it straight through — do NOT generate a new key on
-// each retry, or the server-side dedup guard is pointless.
 export function newIdempotencyKey(): string {
     return crypto.randomUUID();
 }
 
 // ============================================================
-// GET ORDERS — search + date filter
+// GET ORDERS
 // ============================================================
 
 export interface GetOrdersOptions {
     status?: OrderStatus;
+
     search?: string;
+
     dateField?: "createdAt" | "updatedAt";
+
     startDate?: string;
+
     endDate?: string;
 }
 
@@ -135,31 +259,49 @@ export async function getOrders(
     const params = listOrdersSchema.parse({
         page,
         limit,
+
         status: options.status,
+
         search: options.search,
+
         dateField: options.dateField,
+
         startDate: options.startDate,
+
         endDate: options.endDate,
     });
 
-    const response = await apiPrivate.get<ApiResponse<OrderListResponse>>(
-        "/customer/orders",
-        { params }
-    );
+    const response =
+        await apiPrivate.get<
+            ApiResponse<OrderListResponse>
+        >(
+            "/customer/orders",
+            {
+                params,
+            }
+        );
 
     return response.data.data;
 }
 
 // ============================================================
-// GET ORDER DETAILS
+// GET ORDER BY ID
 // ============================================================
 
-export async function getOrderById(orderId: number): Promise<OrderDetails> {
-    const { orderId: validOrderId } = orderIdSchema.parse({ orderId });
+export async function getOrderById(
+    orderId: number
+): Promise<OrderDetails> {
+    const { orderId: validOrderId } =
+        orderIdSchema.parse({
+            orderId,
+        });
 
-    const response = await apiPrivate.get<ApiResponse<OrderDetails>>(
-        `/customer/orders/${validOrderId}`
-    );
+    const response =
+        await apiPrivate.get<
+            ApiResponse<OrderDetails>
+        >(
+            `/customer/orders/${validOrderId}`
+        );
 
     return response.data.data;
 }
@@ -167,17 +309,45 @@ export async function getOrderById(orderId: number): Promise<OrderDetails> {
 // ============================================================
 // ORDER-LEVEL CANCEL
 // ============================================================
+//
+// Backend:
+//
+// PATCH /customer/orders/:orderId/cancel
+//
+// Body:
+// {
+//     idempotencyKey,
+//     reason?
+// }
+//
+// Backend returns:
+//
+// OrderDetails
+//
 
-export async function cancelOrder(orderId: number): Promise<OrderDetails> {
+export async function cancelOrder(
+    orderId: number,
+    idempotencyKey: string,
+    reason?: string
+): Promise<OrderDetails> {
     const data = cancelOrderSchema.parse({
         orderId,
-        idempotencyKey: newIdempotencyKey(),
+        idempotencyKey,
+        reason,
     });
 
-    const response = await apiPrivate.patch<ApiResponse<OrderDetails>>(
-        `/customer/orders/${data.orderId}/cancel`,
-        { idempotencyKey: data.idempotencyKey }
-    );
+    const response =
+        await apiPrivate.patch<
+            ApiResponse<OrderDetails>
+        >(
+            `/customer/orders/${data.orderId}/cancel`,
+            {
+                idempotencyKey:
+                    data.idempotencyKey,
+
+                reason: data.reason,
+            }
+        );
 
     return response.data.data;
 }
@@ -185,23 +355,53 @@ export async function cancelOrder(orderId: number): Promise<OrderDetails> {
 // ============================================================
 // ITEM-LEVEL CANCEL
 // ============================================================
+//
+// Backend:
+//
+// PATCH /customer/orders/:orderId/items/:itemId/cancel
+//
+// Body:
+// {
+//     quantity,
+//     idempotencyKey,
+//     reason?
+// }
+//
+// Backend returns:
+//
+// OrderItemMutationResult
+//
 
 export async function cancelOrderItem(
     orderId: number,
     itemId: number,
-    quantity: number
-): Promise<OrderItem> {
-    const data = cancelOrderItemSchema.parse({
-        orderId,
-        itemId,
-        quantity,
-        idempotencyKey: newIdempotencyKey(),
-    });
+    quantity: number,
+    idempotencyKey: string,
+    reason?: string
+): Promise<OrderItemMutationResult> {
+    const data =
+        cancelOrderItemSchema.parse({
+            orderId,
+            itemId,
+            quantity,
+            idempotencyKey,
+            reason,
+        });
 
-    const response = await apiPrivate.patch<ApiResponse<OrderItem>>(
-        `/customer/orders/${data.orderId}/items/${data.itemId}/cancel`,
-        { quantity: data.quantity, idempotencyKey: data.idempotencyKey }
-    );
+    const response =
+        await apiPrivate.patch<
+            ApiResponse<OrderItemMutationResult>
+        >(
+            `/customer/orders/${data.orderId}/items/${data.itemId}/cancel`,
+            {
+                quantity: data.quantity,
+
+                idempotencyKey:
+                    data.idempotencyKey,
+
+                reason: data.reason,
+            }
+        );
 
     return response.data.data;
 }
@@ -209,48 +409,101 @@ export async function cancelOrderItem(
 // ============================================================
 // ITEM-LEVEL RETURN
 // ============================================================
+//
+// Backend:
+//
+// POST /customer/orders/:orderId/items/:itemId/return
+//
+// Body:
+// {
+//     quantity,
+//     reason,
+//     idempotencyKey
+// }
+//
+// Backend returns:
+//
+// OrderItemMutationResult
+//
 
 export async function returnOrderItem(
     orderId: number,
     itemId: number,
     quantity: number,
-    reason: string
-): Promise<OrderItem> {
-    const data = returnOrderItemSchema.parse({
-        orderId,
-        itemId,
-        quantity,
-        reason,
-        idempotencyKey: newIdempotencyKey(),
-    });
+    reason: string,
+    idempotencyKey: string
+): Promise<OrderItemMutationResult> {
+    const data =
+        returnOrderItemSchema.parse({
+            orderId,
+            itemId,
+            quantity,
+            reason,
+            idempotencyKey,
+        });
 
-    const response = await apiPrivate.post<ApiResponse<OrderItem>>(
-        `/customer/orders/${data.orderId}/items/${data.itemId}/return`,
-        {
-            quantity: data.quantity,
-            reason: data.reason,
-            idempotencyKey: data.idempotencyKey,
-        }
-    );
+    const response =
+        await apiPrivate.post<
+            ApiResponse<OrderItemMutationResult>
+        >(
+            `/customer/orders/${data.orderId}/items/${data.itemId}/return`,
+            {
+                quantity: data.quantity,
+
+                reason: data.reason,
+
+                idempotencyKey:
+                    data.idempotencyKey,
+            }
+        );
 
     return response.data.data;
 }
 
 // ============================================================
-// VERIFY PAYMENT
+// VERIFY RAZORPAY PAYMENT
 // ============================================================
+//
+// Backend:
+//
+// POST /customer/orders/:orderId/verify-payment
+//
+// Body:
+// {
+//     razorpayPaymentId,
+//     razorpaySignature
+// }
+//
+// Backend returns:
+//
+// OrderDetails
+//
 
 export async function verifyPayment(
     orderId: number,
     razorpayPaymentId: string,
     razorpaySignature: string
 ): Promise<OrderDetails> {
-    const data = verifyPaymentSchema.parse({ orderId, razorpayPaymentId, razorpaySignature });
+    const data =
+        verifyPaymentSchema.parse({
+            orderId,
+            razorpayPaymentId,
+            razorpaySignature,
+        });
 
-    const response = await apiPrivate.post<ApiResponse<OrderDetails>>(
-        `/customer/orders/${data.orderId}/verify-payment`,
-        { razorpayPaymentId: data.razorpayPaymentId, razorpaySignature: data.razorpaySignature }
-    );
+    const response =
+        await apiPrivate.post<
+            ApiResponse<OrderDetails>
+        >(
+            `/customer/orders/${data.orderId}/verify-payment`,
+            {
+                razorpayPaymentId:
+                    data.razorpayPaymentId,
+
+                razorpaySignature:
+                    data.razorpaySignature,
+            }
+        );
 
     return response.data.data;
 }
