@@ -27,51 +27,66 @@ export default function OrderDetailsPage() {
         useState("");
 
     useEffect(() => {
+        let mounted = true;
+
         async function loadOrder() {
-            // ------------------------------------------------
-            // Validate order ID before making API request
-            // ------------------------------------------------
+            // ====================================================
+            // VALIDATE ORDER ID
+            // ====================================================
 
             if (
                 !Number.isInteger(orderId) ||
                 orderId <= 0
             ) {
-                setError(
-                    getApiErrorMessage(
-                        "Invalid order ID."
-                    )
-                );
+                if (!mounted) return;
 
+                setError("Invalid order ID.");
+                setOrder(null);
                 setLoading(false);
 
                 return;
             }
 
             try {
+                if (!mounted) return;
+
                 setLoading(true);
                 setError("");
 
                 const data =
                     await getOrderById(orderId);
 
+                if (!mounted) return;
+
                 setOrder(data);
             } catch (error) {
+                if (!mounted) return;
+
                 console.error(
                     "Failed to load order:",
                     error
                 );
 
+                setOrder(null);
+
                 setError(
                     getApiErrorMessage(
+                        error,
                         "Unable to load this order."
                     )
                 );
             } finally {
+                if (!mounted) return;
+
                 setLoading(false);
             }
         }
 
         loadOrder();
+
+        return () => {
+            mounted = false;
+        };
     }, [orderId]);
 
     // ========================================================
@@ -80,7 +95,7 @@ export default function OrderDetailsPage() {
 
     if (loading) {
         return (
-            <main className="mx-auto max-w-5xl px-4 py-10">
+            <main className="mx-auto w-full max-w-5xl px-4 py-10">
                 <div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-500">
                     Loading order...
                 </div>
@@ -94,7 +109,7 @@ export default function OrderDetailsPage() {
 
     if (error || !order) {
         return (
-            <main className="mx-auto max-w-5xl px-4 py-10">
+            <main className="mx-auto w-full max-w-5xl px-4 py-10">
                 <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
                     <p className="text-sm text-red-600">
                         {error || "Order not found."}
@@ -105,10 +120,12 @@ export default function OrderDetailsPage() {
     }
 
     // ========================================================
-    // ORDER
+    // ORDER DETAILS
     // ========================================================
 
     return (
-        <OrderDetails order={order} />
+        <main className="w-full">
+            <OrderDetails order={order} />
+        </main>
     );
 }

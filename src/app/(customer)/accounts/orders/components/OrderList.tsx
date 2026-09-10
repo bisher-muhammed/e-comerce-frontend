@@ -5,7 +5,12 @@ import { useEffect, useState } from "react";
 import { CalendarDays, ChevronRight, Package, CreditCard, Search } from "lucide-react";
 
 import { getOrders, type OrderListItem } from "@/app/services/customer/order.service";
-import type { OrderStatus, PaymentMethod, PaymentStatus } from "@/app/validations/customer/order.validation";
+import {
+    listOrdersSchema,
+    type OrderStatus,
+    type PaymentMethod,
+    type PaymentStatus,
+} from "@/app/validations/customer/order.validation";
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
 
 interface OrderListProps {
@@ -32,6 +37,12 @@ const PAYMENT_STATUS_STYLES: Record<PaymentStatus, string> = {
     PAID: "bg-green-100 text-green-700",
     FAILED: "bg-red-100 text-red-700",
 };
+
+// Pull the search cap from the schema itself rather than hardcoding
+// 100 here — if the server-side limit changes, this stays in sync
+// instead of silently drifting and throwing on .parse().
+const SEARCH_MAX_LENGTH =
+    listOrdersSchema.shape.search.unwrap().maxLength ?? 100;
 
 function formatDate(date: string) {
     return new Date(date).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
@@ -78,6 +89,15 @@ export default function OrderList({ initialStatus }: OrderListProps) {
                 setLoading(true);
                 setError("");
 
+                // Guard against a startDate that's after endDate before
+                // it ever reaches the schema/server — the schema doesn't
+                // cross-check the two fields, so nothing else will catch this.
+                if (startDate && endDate && startDate > endDate) {
+                    setError("Start date must be before end date.");
+                    setLoading(false);
+                    return;
+                }
+
                 const result = await getOrders(page, 10, {
                     status,
                     search: search || undefined,
@@ -90,7 +110,7 @@ export default function OrderList({ initialStatus }: OrderListProps) {
                 setPagination(result.pagination);
             } catch (err) {
                 console.error(err);
-                setError(getApiErrorMessage(err,"Failed to load orders."));
+                setError(getApiErrorMessage(err, "Failed to load orders."));
             } finally {
                 setLoading(false);
             }
@@ -108,6 +128,7 @@ export default function OrderList({ initialStatus }: OrderListProps) {
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     placeholder="Search by order ID or product..."
+                    maxLength={SEARCH_MAX_LENGTH}
                     className="w-full rounded-lg border py-2.5 pl-9 pr-3 text-sm outline-none focus:border-black"
                 />
             </div>

@@ -46,11 +46,13 @@ export const listOrdersSchema = z.object({
         .enum(["createdAt", "updatedAt"])
         .optional(),
 
-    // ISO date strings.
-    // Backend converts these into Date objects.
-    startDate: z.string().optional(),
+    startDate: z
+        .string()
+        .optional(),
 
-    endDate: z.string().optional(),
+    endDate: z
+        .string()
+        .optional(),
 });
 
 // ============================================================
@@ -58,17 +60,20 @@ export const listOrdersSchema = z.object({
 // ============================================================
 
 export const cancelOrderSchema = z.object({
-    orderId: z.number().int().positive(),
+    orderId: z
+        .number()
+        .int()
+        .positive(),
 
     idempotencyKey: z
         .string()
         .trim()
         .min(1),
 
-    // Backend accepts optional reason.
     reason: z
         .string()
         .trim()
+        .min(5, "Cancellation reason must be at least 5 characters")
         .max(500)
         .optional(),
 });
@@ -78,9 +83,15 @@ export const cancelOrderSchema = z.object({
 // ============================================================
 
 export const cancelOrderItemSchema = z.object({
-    orderId: z.number().int().positive(),
+    orderId: z
+        .number()
+        .int()
+        .positive(),
 
-    itemId: z.number().int().positive(),
+    itemId: z
+        .number()
+        .int()
+        .positive(),
 
     quantity: z
         .number()
@@ -95,6 +106,7 @@ export const cancelOrderItemSchema = z.object({
     reason: z
         .string()
         .trim()
+        .min(5, "Cancellation reason must be at least 5 characters")
         .max(500)
         .optional(),
 });
@@ -104,23 +116,25 @@ export const cancelOrderItemSchema = z.object({
 // ============================================================
 
 export const returnOrderItemSchema = z.object({
-    orderId: z.number().int().positive(),
+    orderId: z
+        .number()
+        .int()
+        .positive(),
 
-    itemId: z.number().int().positive(),
+    itemId: z
+        .number()
+        .int()
+        .positive(),
 
     quantity: z
         .number()
         .int()
         .positive(),
 
-    // Backend requires a non-empty return reason.
     reason: z
         .string()
         .trim()
-        .min(
-            5,
-            "Return reason must be at least 5 characters"
-        )
+        .min(5, "Return reason must be at least 5 characters")
         .max(500),
 
     idempotencyKey: z
@@ -134,7 +148,10 @@ export const returnOrderItemSchema = z.object({
 // ============================================================
 
 export const verifyPaymentSchema = z.object({
-    orderId: z.number().int().positive(),
+    orderId: z
+        .number()
+        .int()
+        .positive(),
 
     razorpayPaymentId: z
         .string()
@@ -165,3 +182,5 @@ export type PaymentStatus =
     | "PENDING"
     | "PAID"
     | "FAILED";
+
+    

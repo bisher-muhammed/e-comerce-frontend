@@ -1,4 +1,3 @@
-
 "use client";
 
 import Link from "next/link";
@@ -26,6 +25,12 @@ import {
     type OrderItem,
     type OrderItemMutationResult,
 } from "@/app/services/customer/order.service";
+
+import {
+    cancelOrderSchema,
+    cancelOrderItemSchema,
+    returnOrderItemSchema,
+} from "@/app/validations/customer/order.validation";
 
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
 
@@ -202,15 +207,45 @@ function ItemActions({
     // ========================================================
 
     async function handleCancel() {
-        if (
-            qty < 1 ||
-            qty > item.remainingQuantity
-        ) {
-            setError(
-                "Invalid cancellation quantity."
+        // Validate quantity against the same rule the schema/server
+        // enforces, plus the local remainingQuantity ceiling which
+        // the schema has no way to know about.
+        const qtyCheck =
+            cancelOrderItemSchema.shape.quantity.safeParse(
+                qty
             );
 
+        if (!qtyCheck.success) {
+            setError(
+                qtyCheck.error.issues[0].message
+            );
             return;
+        }
+
+        if (qty > item.remainingQuantity) {
+            setError(
+                `Only ${item.remainingQuantity} unit(s) remaining.`
+            );
+            return;
+        }
+
+        const trimmedReason = reason.trim();
+
+        // reason is optional, but if provided it must satisfy
+        // min(5) — an empty string is fine, "abc" is not.
+        if (trimmedReason) {
+            const reasonCheck =
+                cancelOrderItemSchema.shape.reason.safeParse(
+                    trimmedReason
+                );
+
+            if (!reasonCheck.success) {
+                setError(
+                    reasonCheck.error.issues[0]
+                        .message
+                );
+                return;
+            }
         }
 
         try {
@@ -233,7 +268,7 @@ function ItemActions({
                     item.id,
                     qty,
                     idempotencyKey,
-                    reason.trim() || undefined
+                    trimmedReason || undefined
                 );
 
             // ------------------------------------------------
@@ -253,6 +288,7 @@ function ItemActions({
 
             setError(
                 getApiErrorMessage(
+                    err,
                     "Unable to cancel this item."
                 )
             );
@@ -266,25 +302,38 @@ function ItemActions({
     // ========================================================
 
     async function handleReturn() {
-        const trimmedReason =
-            reason.trim();
-
-        if (trimmedReason.length < 5) {
-            setError(
-                "Please provide a reason (at least 5 characters)."
+        const qtyCheck =
+            returnOrderItemSchema.shape.quantity.safeParse(
+                qty
             );
 
+        if (!qtyCheck.success) {
+            setError(
+                qtyCheck.error.issues[0].message
+            );
             return;
         }
 
-        if (
-            qty < 1 ||
-            qty > item.remainingQuantity
-        ) {
+        if (qty > item.remainingQuantity) {
             setError(
-                "Invalid return quantity."
+                `Only ${item.remainingQuantity} unit(s) remaining.`
+            );
+            return;
+        }
+
+        const trimmedReason = reason.trim();
+
+        // reason is required for returns (min 5, no optional()).
+        const reasonCheck =
+            returnOrderItemSchema.shape.reason.safeParse(
+                trimmedReason
             );
 
+        if (!reasonCheck.success) {
+            setError(
+                reasonCheck.error.issues[0]
+                    .message
+            );
             return;
         }
 
@@ -315,6 +364,7 @@ function ItemActions({
 
             setError(
                 getApiErrorMessage(
+                    err,
                     "Unable to submit the return."
                 )
             );
@@ -435,7 +485,7 @@ function ItemActions({
                                 e.target.value
                             )
                         }
-                        placeholder="Reason for cancelling (optional)"
+                        placeholder="Reason for cancelling — leave blank, or 5+ characters"
                         maxLength={500}
                         className="w-full rounded-lg border p-2 text-xs"
                         rows={2}
@@ -554,6 +604,25 @@ export default function OrderDetails({
     // ========================================================
 
     async function handleCancelOrder() {
+        const trimmedReason =
+            cancelReason.trim();
+
+        // reason is optional, but min(5) applies if non-empty.
+        if (trimmedReason) {
+            const reasonCheck =
+                cancelOrderSchema.shape.reason.safeParse(
+                    trimmedReason
+                );
+
+            if (!reasonCheck.success) {
+                setError(
+                    reasonCheck.error.issues[0]
+                        .message
+                );
+                return;
+            }
+        }
+
         try {
             setCancelling(true);
             setError("");
@@ -566,8 +635,7 @@ export default function OrderDetails({
                 await cancelOrder(
                     order.id,
                     idempotencyKey,
-                    cancelReason.trim() ||
-                        undefined
+                    trimmedReason || undefined
                 );
 
             setOrder(updatedOrder);
@@ -583,6 +651,7 @@ export default function OrderDetails({
 
             setError(
                 getApiErrorMessage(
+                    err,
                     "Unable to cancel the order. Please try again."
                 )
             );
@@ -1186,7 +1255,7 @@ export default function OrderDetails({
                                                 e.target.value
                                             )
                                         }
-                                        placeholder="Reason for cancelling (optional)"
+                                        placeholder="Reason for cancelling — leave blank, or 5+ characters"
                                         maxLength={500}
                                         className="w-full rounded-lg border p-2 text-xs"
                                         rows={3}

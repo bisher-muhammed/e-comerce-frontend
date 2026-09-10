@@ -25,6 +25,12 @@ const navigation = [
     href: "/admin/dashboard",
     icon: LayoutDashboard,
   },
+
+  {
+    label: "CouponMabagement",
+    href: "/admin/coupon",
+    icon: LayoutDashboard,
+  },
   {
     label: "Products",
     href: "/admin/products",

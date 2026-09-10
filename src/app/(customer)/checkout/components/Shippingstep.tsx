@@ -12,12 +12,7 @@ interface ShippingStepProps {
   onContinue: () => void;
 }
 
-/**
- * The reference screenshot implies free-text address entry, but this app
- * only exposes getAddresses() (read) — there's no create/update endpoint in
- * address.service to save a new one from here. So this stays "pick a saved
- * address," restyled to match, with a link out to manage/add addresses.
- */
+
 export function ShippingStep({
   addresses,
   selectedAddressId,

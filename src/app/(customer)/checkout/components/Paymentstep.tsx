@@ -10,14 +10,7 @@ interface PaymentStepProps {
   onContinue: () => void;
 }
 
-/**
- * The reference screenshot shows a raw card-number/CVV form. That's not
- * something to build against a real backend: collecting a raw PAN/CVV
- * yourself is a PCI-DSS violation unless you're using a tokenizing provider.
- * This app already does it right — createCheckout + Razorpay's own hosted
- * modal — so "Online" here just selects the method; the modal opens from
- * the Review step's final action, same as before.
- */
+
 export function PaymentStep({
   paymentMethod,
   onChange,

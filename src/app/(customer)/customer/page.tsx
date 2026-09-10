@@ -1,17 +1,33 @@
+
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
 import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
 
 import ProductCard, {
   type Product,
 } from "./components/products/ProductCard";
+
 import { getProducts } from "@/app/services/customer/product.service";
-import { getWishlist } from "@/app/services/customer/wishlist.service"
 
-import { getApiErrorMessage} from "@/app/lib/api/apiError";
+import { getWishlist } from "@/app/services/customer/wishlist.service";
 
-// ---------- Hero banner ----------
+import {
+  getAvailableCoupons,
+  claimCoupon,
+  type CustomerCoupon,
+} from "@/app/services/customer/coupon.service";
+
+import { getApiErrorMessage } from "@/app/lib/api/apiError";
+
+import CouponCard from "@/app/(customer)/coupon/component/CouponCard";
+
+// ============================================================
+// HERO BANNER
+// ============================================================
 
 function HeroBanner() {
   return (
@@ -46,7 +62,9 @@ function HeroBanner() {
   );
 }
 
-// ---------- Promo strip ----------
+// ============================================================
+// PROMO STRIP
+// ============================================================
 
 const promos = [
   {
@@ -90,7 +108,9 @@ function PromoStrip() {
   );
 }
 
-// ---------- Skeleton ----------
+// ============================================================
+// PRODUCT SKELETON
+// ============================================================
 
 function ProductCardSkeleton() {
   return (
@@ -108,20 +128,108 @@ function ProductCardSkeleton() {
   );
 }
 
-// ---------- Page ----------
+// ============================================================
+// COUPON SKELETON
+// ============================================================
+
+function CouponCardSkeleton() {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="h-20 animate-pulse bg-secondary" />
+
+      <div className="space-y-4 p-5">
+        <div className="h-7 w-32 animate-pulse rounded bg-secondary" />
+
+        <div className="h-12 animate-pulse rounded-lg bg-secondary" />
+
+        <div className="h-10 animate-pulse rounded-lg bg-secondary" />
+      </div>
+    </div>
+  );
+}
+
+// ============================================================
+// COUPON SECTION
+// ============================================================
+
+interface CouponSectionProps {
+  coupons: CustomerCoupon[];
+  claimingCode: string | null;
+  onClaim: (coupon: CustomerCoupon) => Promise<void>;
+}
+
+function CouponSection({
+  coupons,
+  claimingCode,
+  onClaim,
+}: CouponSectionProps) {
+  if (coupons.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="mx-auto max-w-7xl px-6 pb-12">
+      {/* HEADER */}
+
+      <div className="mb-6 flex items-end justify-between gap-4 border-b border-border pb-5">
+        <div>
+          <h2 className="text-2xl font-medium text-foreground">
+            Coupons & Offers
+          </h2>
+
+          <p className="mt-1 text-sm text-muted-foreground">
+            Claim an offer and save on your next order.
+          </p>
+        </div>
+
+        <Link
+          href="/coupon"
+          className="hidden items-center gap-1 text-xs font-medium text-foreground transition-opacity hover:opacity-60 sm:flex"
+        >
+          View all
+          <ArrowRight size={14} />
+        </Link>
+      </div>
+
+      {/* COUPONS */}
+
+      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+        {coupons.slice(0, 3).map((coupon) => (
+          <CouponCard
+            key={coupon.id}
+            coupon={coupon}
+            claiming={claimingCode === coupon.code}
+            onClaim={onClaim}
+          />
+        ))}
+      </div>
+
+      {/* MOBILE VIEW ALL */}
+
+      <div className="mt-6 sm:hidden">
+        <Link
+          href="/coupon"
+          className="flex items-center justify-center gap-1 border border-border px-4 py-3 text-xs font-medium transition-colors hover:border-foreground"
+        >
+          View all coupons
+          <ArrowRight size={14} />
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+// ============================================================
+// PAGE
+// ============================================================
 
 export default function CustomerPage() {
+  // ============================================================
+  // PRODUCT STATE
+  // ============================================================
+
   const [products, setProducts] = useState<Product[]>([]);
 
-  /*
-   * Stores only the product IDs that are in the wishlist.
-   *
-   * Example:
-   *
-   * Set { 2, 5, 10 }
-   *
-   * means products 2, 5 and 10 are wishlisted.
-   */
   const [wishlistProductIds, setWishlistProductIds] =
     useState<Set<number>>(new Set());
 
@@ -129,9 +237,22 @@ export default function CustomerPage() {
 
   const [error, setError] = useState("");
 
-  // --------------------------------------------------
+  // ============================================================
+  // COUPON STATE
+  // ============================================================
+
+  const [coupons, setCoupons] = useState<CustomerCoupon[]>([]);
+
+  const [couponLoading, setCouponLoading] = useState(true);
+
+  const [couponError, setCouponError] = useState("");
+
+  const [claimingCode, setClaimingCode] =
+    useState<string | null>(null);
+
+  // ============================================================
   // LOAD PRODUCTS + WISHLIST
-  // --------------------------------------------------
+  // ============================================================
 
   const loadProducts = async () => {
     try {
@@ -166,7 +287,6 @@ export default function CustomerPage() {
          * Guest user / authentication error.
          *
          * Don't show an error for this.
-         * Products should still be displayed.
          */
 
         setWishlistProductIds(new Set());
@@ -183,17 +303,82 @@ export default function CustomerPage() {
     }
   };
 
-  // --------------------------------------------------
+  // ============================================================
+  // LOAD COUPONS
+  // ============================================================
+
+  const loadCoupons = useCallback(async () => {
+    try {
+      setCouponLoading(true);
+      setCouponError("");
+
+      const data = await getAvailableCoupons();
+
+      setCoupons(data);
+    } catch (error: unknown) {
+      /*
+       * Coupon section is not critical to the home page.
+       *
+       * If coupon loading fails, don't prevent
+       * products from being displayed.
+       */
+
+      setCouponError(
+        getApiErrorMessage(
+          error,
+          "Unable to load coupons"
+        )
+      );
+
+      setCoupons([]);
+    } finally {
+      setCouponLoading(false);
+    }
+  }, []);
+
+  // ============================================================
   // INITIAL LOAD
-  // --------------------------------------------------
+  // ============================================================
 
   useEffect(() => {
     loadProducts();
-  }, []);
+    loadCoupons();
+  }, [loadCoupons]);
 
-  // --------------------------------------------------
+  // ============================================================
+  // CLAIM COUPON
+  // ============================================================
+
+  const handleClaimCoupon = async (
+    coupon: CustomerCoupon
+  ) => {
+    try {
+      setClaimingCode(coupon.code);
+      setCouponError("");
+
+      await claimCoupon(coupon.code);
+
+      /*
+       * Reload coupons so the card changes
+       * from "Claim coupon" to "Claimed".
+       */
+
+      await loadCoupons();
+    } catch (error: unknown) {
+      setCouponError(
+        getApiErrorMessage(
+          error,
+          "Unable to claim coupon"
+        )
+      );
+    } finally {
+      setClaimingCode(null);
+    }
+  };
+
+  // ============================================================
   // WISHLIST CHANGE
-  // --------------------------------------------------
+  // ============================================================
 
   const handleWishlistChange = (
     productId: number,
@@ -212,27 +397,33 @@ export default function CustomerPage() {
     });
   };
 
+  // ============================================================
+  // RENDER
+  // ============================================================
+
   return (
     <main className="min-h-screen bg-background">
-
-      {/* Hero + Promo */}
+      {/* ====================================================== */}
+      {/* HERO + PROMO */}
+      {/* ====================================================== */}
 
       <div className="mx-auto max-w-7xl px-6 pt-10">
         <HeroBanner />
+
         <PromoStrip />
       </div>
 
-      {/* Products */}
+      {/* ====================================================== */}
+      {/* PRODUCTS */}
+      {/* ====================================================== */}
 
       <div
         id="products"
         className="mx-auto max-w-7xl px-6 pb-10"
       >
-
-        {/* Header */}
+        {/* HEADER */}
 
         <div className="mb-8 flex flex-col gap-1 border-b border-border pb-6">
-
           <h2 className="text-2xl font-medium text-foreground">
             Products
           </h2>
@@ -241,27 +432,29 @@ export default function CustomerPage() {
             {loading
               ? "Loading the latest collection..."
               : `${products.length} item${
-                  products.length === 1 ? "" : "s"
+                  products.length === 1
+                    ? ""
+                    : "s"
                 } available`}
           </p>
-
         </div>
 
-        {/* Loading */}
+        {/* LOADING */}
 
         {loading && (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {Array.from({ length: 8 }).map((_, i) => (
-              <ProductCardSkeleton key={i} />
-            ))}
+            {Array.from({ length: 8 }).map(
+              (_, i) => (
+                <ProductCardSkeleton key={i} />
+              )
+            )}
           </div>
         )}
 
-        {/* Error */}
+        {/* ERROR */}
 
         {!loading && error && (
           <div className="flex flex-col items-start gap-3 border border-border bg-card p-6">
-
             <p className="text-sm text-destructive">
               {error}
             </p>
@@ -272,59 +465,73 @@ export default function CustomerPage() {
             >
               Try again
             </button>
-
           </div>
         )}
 
-        {/* No products */}
+        {/* NO PRODUCTS */}
 
         {!loading &&
           !error &&
           products.length === 0 && (
             <div className="border border-border bg-card px-6 py-16 text-center">
-
               <p className="text-sm text-muted-foreground">
                 No products available right now.
                 Check back soon.
               </p>
-
             </div>
           )}
 
-        {/* Products */}
+        {/* PRODUCTS */}
 
         {!loading &&
           !error &&
           products.length > 0 && (
             <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-
               {products.map((product) => (
                 <ProductCard
                   key={product.id}
                   product={product}
-
-                  /*
-                   * This determines whether the
-                   * heart is filled.
-                   */
                   isWishlisted={wishlistProductIds.has(
                     product.id
                   )}
-
-                  /*
-                   * ProductCard calls this after
-                   * successfully adding/removing.
-                   */
                   onWishlistChange={
                     handleWishlistChange
                   }
                 />
               ))}
-
             </div>
           )}
-
       </div>
+
+      {/* ====================================================== */}
+      {/* COUPONS */}
+      {/* ====================================================== */}
+
+      {!couponLoading && !couponError && (
+        <CouponSection
+          coupons={coupons}
+          claimingCode={claimingCode}
+          onClaim={handleClaimCoupon}
+        />
+      )}
+
+      {/* COUPON LOADING */}
+
+      {couponLoading && (
+        <section className="mx-auto max-w-7xl px-6 pb-12">
+          <div className="mb-6 border-b border-border pb-5">
+            <div className="h-6 w-48 animate-pulse rounded bg-secondary" />
+
+            <div className="mt-2 h-4 w-72 animate-pulse rounded bg-secondary" />
+          </div>
+
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {[1, 2, 3].map((item) => (
+              <CouponCardSkeleton key={item} />
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   );
 }

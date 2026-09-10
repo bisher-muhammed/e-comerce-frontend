@@ -1,21 +1,46 @@
+
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ShieldCheck, Truck } from "lucide-react";
 
-import { getCart, type Cart } from "@/app/services/customer/cart.service";
+import {
+  ShieldCheck,
+  Truck,
+} from "lucide-react";
+
+import {
+  getCart,
+  type Cart,
+} from "@/app/services/customer/cart.service";
+
 import {
   getAddresses,
   type Address,
 } from "@/app/services/customer/address.service";
+
 import {
   createCheckout,
   verifyPayment,
 } from "@/app/services/customer/checkout.service";
-import { loadRazorpayScript } from "@/app/lib/payments/loadRazorpayScript";
-import { getApiErrorMessage } from "@/app/lib/api/apiError";
+
+import {
+  loadRazorpayScript,
+} from "@/app/lib/payments/loadRazorpayScript";
+
+import {
+  getApiErrorMessage,
+} from "@/app/lib/api/apiError";
+
+import {
+  type CouponValidationResult,
+} from "@/app/services/customer/coupon.service";
 
 import { CheckoutStepper } from "./components/Checkoutstepper";
 import { OrderSummaryCard } from "./components/OrderSummaryCard";
@@ -24,46 +49,90 @@ import { ShippingStep } from "./components/Shippingstep";
 import { PaymentStep } from "./components/Paymentstep";
 import { ReviewCard } from "./components/ReviewCard";
 import { OrderConfirmedStep } from "./components/Orderconfirmedstep";
-import type { ContactInfo, PaymentMethod, StepId } from "./components/types";
+
+
+import type {
+  ContactInfo,
+  PaymentMethod,
+  StepId,
+} from "./components/types";
 
 export default function CheckoutPage() {
   const router = useRouter();
 
-  const [cart, setCart] = useState<Cart | null>(null);
-  const [addresses, setAddresses] = useState<Address[]>([]);
 
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState("");
 
-  const [currentStep, setCurrentStep] = useState<StepId>("contact");
-  const [completedSteps, setCompletedSteps] = useState<StepId[]>([]);
+  const [cart, setCart] =
+    useState<Cart | null>(null);
 
-  const [contact, setContact] = useState<ContactInfo>({
-    email: "",
-    phone: "",
-    keepUpdated: true,
-  });
+  const [addresses, setAddresses] =
+    useState<Address[]>([]);
 
-  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(
-    null
-  );
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
+  const [loading, setLoading] =
+    useState(true);
 
-  const [actionError, setActionError] = useState("");
-  const [placing, setPlacing] = useState(false);
-  const [idempotencyKey] = useState(() => crypto.randomUUID());
-  
+  const [loadError, setLoadError] =
+    useState("");
 
-  // Set once createCheckout (COD) or verifyPayment (ONLINE) succeeds.
-  // While this is non-null we show the confirmation screen instead of the
-  // wizard, and defer the /orders/[id] redirect to the "Track order" click.
-  const [confirmedOrder, setConfirmedOrder] = useState<{ id: string | number } | null>(
-    null
-  );
+  // ============================================================
+  // CHECKOUT STEPS
+  // ============================================================
 
-  /*
-   * LOAD CART + ADDRESSES
-   */
+  const [currentStep, setCurrentStep] =
+    useState<StepId>("contact");
+
+  const [completedSteps, setCompletedSteps] =
+    useState<StepId[]>([]);
+
+  // ============================================================
+  // CONTACT
+  // ============================================================
+
+  const [contact, setContact] =
+    useState<ContactInfo>({
+      email: "",
+      phone: "",
+      keepUpdated: true,
+    });
+
+
+  const [selectedAddressId, setSelectedAddressId] =
+    useState<number | null>(null);
+
+  const [paymentMethod, setPaymentMethod] =
+    useState<PaymentMethod>("COD");
+
+
+  const [appliedCoupon, setAppliedCoupon] =
+    useState<CouponValidationResult | null>(
+      null
+    );
+
+  // ============================================================
+  // ORDER ACTION STATE
+  // ============================================================
+
+  const [actionError, setActionError] =
+    useState("");
+
+  const [placing, setPlacing] =
+    useState(false);
+
+
+  const [idempotencyKey] =
+    useState(() => crypto.randomUUID());
+
+
+
+  const [confirmedOrder, setConfirmedOrder] =
+    useState<{
+      id: string | number;
+    } | null>(null);
+
+  // ============================================================
+  // LOAD CART + ADDRESSES
+  // ============================================================
+
   useEffect(() => {
     let cancelled = false;
 
@@ -71,27 +140,40 @@ export default function CheckoutPage() {
       try {
         setLoadError("");
 
-        const [cartRes, addressRes] = await Promise.all([
-          getCart(),
-          getAddresses(),
-        ]);
+        const [cartRes, addressRes] =
+          await Promise.all([
+            getCart(),
+            getAddresses(),
+          ]);
 
         if (cancelled) return;
 
         setCart(cartRes.data);
         setAddresses(addressRes.data);
 
-        const defaultAddress = addressRes.data.find(
-          (address: { isDefault: any }) => address.isDefault
-        );
+        const defaultAddress =
+          addressRes.data.find(
+            (address) => address.isDefault
+          );
 
-        setSelectedAddressId(defaultAddress?.id ?? addressRes.data[0]?.id ?? null);
+        setSelectedAddressId(
+          defaultAddress?.id ??
+            addressRes.data[0]?.id ??
+            null
+        );
       } catch (err) {
         if (!cancelled) {
-          setLoadError(getApiErrorMessage(err, "Failed to load checkout"));
+          setLoadError(
+            getApiErrorMessage(
+              err,
+              "Failed to load checkout"
+            )
+          );
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     })();
 
@@ -100,48 +182,91 @@ export default function CheckoutPage() {
     };
   }, []);
 
+  // ============================================================
+  // SUBTOTAL
+  // ============================================================
+
   const subtotal = useMemo(() => {
     if (!cart) return 0;
+
     return cart.items.reduce(
-      (total, item) => total + Number(item.productVariant.price) * item.quantity,
+      (total, item) =>
+        total +
+        Number(
+          item.productVariant.price
+        ) *
+          item.quantity,
       0
     );
   }, [cart]);
+
+  // ============================================================
+  // STOCK CHECK
+  // ============================================================
 
   const hasStockIssue = useMemo(
     () =>
       cart?.items.some(
         (item) =>
           item.productVariant.stock === 0 ||
-          item.quantity > item.productVariant.stock
+          item.quantity >
+            item.productVariant.stock
       ) ?? false,
     [cart]
   );
 
-  const selectedAddress = addresses.find((a) => a.id === selectedAddressId);
+  // ============================================================
+  // SELECTED ADDRESS
+  // ============================================================
+
+  const selectedAddress =
+    addresses.find(
+      (address) =>
+        address.id === selectedAddressId
+    );
+
+  // ============================================================
+  // STEP NAVIGATION
+  // ============================================================
 
   const goToStep = (step: StepId) => {
     setActionError("");
     setCurrentStep(step);
   };
 
-  const completeAndAdvance = (from: StepId, to: StepId) => {
-    setCompletedSteps((prev) => (prev.includes(from) ? prev : [...prev, from]));
+  const completeAndAdvance = (
+    from: StepId,
+    to: StepId
+  ) => {
+    setCompletedSteps((prev) =>
+      prev.includes(from)
+        ? prev
+        : [...prev, from]
+    );
+
     goToStep(to);
   };
 
-  /*
-   * PLACE ORDER / START PAYMENT
-   */
+  // ============================================================
+  // PLACE ORDER / START PAYMENT
+  // ============================================================
+
   const handlePlaceOrder = async () => {
     if (!selectedAddressId) {
-      setActionError("Select a delivery address before placing your order.");
+      setActionError(
+        "Select a delivery address before placing your order."
+      );
+
       goToStep("shipping");
+
       return;
     }
 
     if (hasStockIssue) {
-      setActionError("Fix the stock issues in your cart before continuing.");
+      setActionError(
+        "Fix the stock issues in your cart before continuing."
+      );
+
       return;
     }
 
@@ -149,89 +274,181 @@ export default function CheckoutPage() {
     setPlacing(true);
 
     try {
-      const response = await createCheckout({
-        addressId: selectedAddressId,
-        paymentMethod,
-        contactEmail: contact.email,
-        contactPhone: contact.phone,
-        idempotencyKey: idempotencyKey,
-      });
+      /**
+       * IMPORTANT:
+       *
+       * We send only couponCode.
+       *
+       * We DO NOT send:
+       *
+       * discountAmount
+       * finalTotal
+       * subtotal
+       *
+       * as trusted coupon calculations.
+       *
+       * The backend must calculate the real discount again.
+       */
+      const response =
+        await createCheckout({
+          addressId: selectedAddressId,
 
-      const { order, mode, razorpay } = response.data;
+          paymentMethod,
+
+          contactEmail: contact.email,
+
+          contactPhone: contact.phone,
+
+          /**
+           * If no coupon is applied, this becomes undefined.
+           *
+           * If coupon is applied:
+           *
+           * "SUMMER50"
+           */
+          couponCode:
+            appliedCoupon?.coupon.code,
+
+          idempotencyKey,
+        });
+
+      const {
+        order,
+        mode,
+        razorpay,
+      } = response.data;
+
+      // ========================================================
+      // COD
+      // ========================================================
 
       if (mode === "COD") {
         setPlacing(false);
-        setConfirmedOrder({ id: order.id });
+
+        setConfirmedOrder({
+          id: order.id,
+        });
+
         return;
       }
 
+      // ========================================================
+      // ONLINE
+      // ========================================================
+
       if (!razorpay) {
-        throw new Error("Missing Razorpay order details from server");
+        throw new Error(
+          "Missing Razorpay order details from server"
+        );
       }
 
       await loadRazorpayScript();
 
-      const rzp = new window.Razorpay({
-        key: razorpay.keyId,
-        amount: razorpay.amount,
-        currency: razorpay.currency,
-        order_id: razorpay.orderId,
+      const rzp =
+        new window.Razorpay({
+          key: razorpay.keyId,
 
-        name: "Store",
-        description: `Order #${order.id}`,
+          /**
+           * IMPORTANT:
+           *
+           * This amount comes from the backend.
+           *
+           * After coupon support is implemented
+           * correctly on the backend, this should be:
+           *
+           * ₹360 -> 36000 paise
+           *
+           * instead of:
+           *
+           * ₹400 -> 40000 paise
+           */
+          amount: razorpay.amount,
 
-        theme: { color: "#1A1917" },
+          currency: razorpay.currency,
 
-        handler: async (rzpResponse: {
-          razorpay_order_id: string;
-          razorpay_payment_id: string;
-          razorpay_signature: string;
-        }) => {
-          try {
-            await verifyPayment(rzpResponse);
-            setPlacing(false);
-            setConfirmedOrder({ id: order.id });
-          } catch (err) {
-            setPlacing(false);
-            setActionError(
-              getApiErrorMessage(
-                err,
-                "Payment was received but we couldn't confirm your order. Contact support with your order ID."
-              )
-            );
-          }
-        },
+          order_id: razorpay.orderId,
 
-        modal: {
-          ondismiss: () => {
-            setPlacing(false);
-            setActionError("Payment was cancelled.");
+          name: "Store",
+
+          description:
+            `Order #${order.id}`,
+
+          theme: {
+            color: "#1A1917",
           },
-        },
-      });
+
+          handler: async (
+            rzpResponse: {
+              razorpay_order_id: string;
+              razorpay_payment_id: string;
+              razorpay_signature: string;
+            }
+          ) => {
+            try {
+              await verifyPayment(
+                rzpResponse
+              );
+
+              setPlacing(false);
+
+              setConfirmedOrder({
+                id: order.id,
+              });
+            } catch (err) {
+              setPlacing(false);
+
+              setActionError(
+                getApiErrorMessage(
+                  err,
+                  "Payment was received but we couldn't confirm your order. Contact support with your order ID."
+                )
+              );
+            }
+          },
+
+          modal: {
+            ondismiss: () => {
+              setPlacing(false);
+
+              setActionError(
+                "Payment was cancelled."
+              );
+            },
+          },
+        });
 
       rzp.open();
     } catch (err) {
       setPlacing(false);
-      setActionError(getApiErrorMessage(err, "Failed to start checkout"));
+
+      setActionError(
+        getApiErrorMessage(
+          err,
+          "Failed to start checkout"
+        )
+      );
     }
   };
 
-  /*
-   * LOADING
-   */
+  // ============================================================
+  // LOADING
+  // ============================================================
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
           <div className="animate-pulse space-y-8">
             <div className="h-4 w-32 rounded bg-secondary" />
+
             <div className="h-9 w-56 rounded bg-secondary" />
+
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
               <div className="space-y-4">
                 <div className="h-36 rounded-xl bg-secondary" />
                 <div className="h-36 rounded-xl bg-secondary" />
               </div>
+
               <div className="h-96 rounded-xl bg-secondary" />
             </div>
           </div>
@@ -240,33 +457,46 @@ export default function CheckoutPage() {
     );
   }
 
-  /*
-   * LOAD ERROR
-   */
+  // ============================================================
+  // LOAD ERROR
+  // ============================================================
+
   if (loadError) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-16 text-center sm:px-6">
-        <p className="text-sm text-destructive">{loadError}</p>
-        <Link href="/shop" className="mt-5 inline-block text-sm underline underline-offset-4">
+        <p className="text-sm text-destructive">
+          {loadError}
+        </p>
+
+        <Link
+          href="/shop"
+          className="mt-5 inline-block text-sm underline underline-offset-4"
+        >
           Continue shopping
         </Link>
       </div>
     );
   }
 
-  /*
-   * EMPTY CART
-   */
+  // ============================================================
+  // EMPTY CART
+  // ============================================================
+
   if (!cart || cart.items.length === 0) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-20 text-center sm:px-6">
         <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-secondary">
           <Truck size={24} />
         </div>
-        <h1 className="mt-5 text-xl font-semibold">Your cart is empty</h1>
+
+        <h1 className="mt-5 text-xl font-semibold">
+          Your cart is empty
+        </h1>
+
         <p className="mt-2 text-sm text-muted-foreground">
           Add something to your cart before checking out.
         </p>
+
         <Link
           href="/shop"
           className="mt-6 inline-flex rounded-lg bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
@@ -277,37 +507,57 @@ export default function CheckoutPage() {
     );
   }
 
-  /*
-   * ORDER CONFIRMED — replaces the entire wizard (no stepper, no sidebar),
-   * matching the reference screenshot. This must be its own early return,
-   * not something nested inside the step/sidebar grid below.
-   */
+  // ============================================================
+  // CONFIRMED
+  // ============================================================
+
   if (confirmedOrder) {
     return (
       <div className="min-h-screen bg-background">
         <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
           <OrderConfirmedStep
-            customerName={selectedAddress?.firstName || "there"}
+            customerName={
+              selectedAddress?.firstName ??
+              "there"
+            }
             orderId={confirmedOrder.id}
-            onTrackOrder={() => router.push(`/accounts/orders/${confirmedOrder.id}`)}
-            onContinueShopping={() => router.push("/shop")}
+            onTrackOrder={() =>
+              router.push(
+                `/accounts/orders/${confirmedOrder.id}`
+              )
+            }
+            onContinueShopping={() =>
+              router.push("/shop")
+            }
           />
         </div>
       </div>
     );
   }
 
+  // ============================================================
+  // CHECKOUT UI
+  // ============================================================
+
   return (
     <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8 lg:py-12">
         {/* HEADER */}
+
         <div className="mb-8">
           <div className="mb-5 flex items-center gap-2 text-xs text-muted-foreground">
-            <Link href="/cart" className="transition-colors hover:text-foreground">
+            <Link
+              href="/cart"
+              className="transition-colors hover:text-foreground"
+            >
               Cart
             </Link>
+
             <span>/</span>
-            <span className="font-medium text-foreground">Checkout</span>
+
+            <span className="font-medium text-foreground">
+              Checkout
+            </span>
           </div>
 
           <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -319,10 +569,15 @@ export default function CheckoutPage() {
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-foreground text-background">
                 <ShieldCheck size={14} />
               </div>
-              <span>Secure checkout</span>
+
+              <span>
+                Secure checkout
+              </span>
             </div>
           </div>
         </div>
+
+        {/* STEPPER */}
 
         <CheckoutStepper
           currentStep={currentStep}
@@ -332,51 +587,116 @@ export default function CheckoutPage() {
 
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_380px]">
           <div>
+            {/* CONTACT */}
+
             {currentStep === "contact" && (
               <ContactStep
                 contact={contact}
                 onChange={setContact}
-                onContinue={() => completeAndAdvance("contact", "shipping")}
+                onContinue={() =>
+                  completeAndAdvance(
+                    "contact",
+                    "shipping"
+                  )
+                }
               />
             )}
+
+            {/* SHIPPING */}
 
             {currentStep === "shipping" && (
               <ShippingStep
                 addresses={addresses}
-                selectedAddressId={selectedAddressId}
-                onSelectAddress={setSelectedAddressId}
-                onBack={() => goToStep("contact")}
-                onContinue={() => completeAndAdvance("shipping", "payment")}
+                selectedAddressId={
+                  selectedAddressId
+                }
+                onSelectAddress={
+                  setSelectedAddressId
+                }
+                onBack={() =>
+                  goToStep("contact")
+                }
+                onContinue={() =>
+                  completeAndAdvance(
+                    "shipping",
+                    "payment"
+                  )
+                }
               />
             )}
 
+            {/* PAYMENT */}
+
             {currentStep === "payment" && (
               <PaymentStep
-                paymentMethod={paymentMethod}
-                onChange={setPaymentMethod}
-                onBack={() => goToStep("shipping")}
-                onContinue={() => completeAndAdvance("payment", "review")}
+                paymentMethod={
+                  paymentMethod
+                }
+                onChange={
+                  setPaymentMethod
+                }
+                onBack={() =>
+                  goToStep("shipping")
+                }
+                onContinue={() =>
+                  completeAndAdvance(
+                    "payment",
+                    "review"
+                  )
+                }
               />
             )}
+
+            {/* REVIEW */}
 
             {currentStep === "review" && (
               <ReviewCard
                 contact={contact}
                 address={selectedAddress}
-                paymentMethod={paymentMethod}
+                paymentMethod={
+                  paymentMethod
+                }
                 cart={cart}
                 subtotal={subtotal}
-                hasStockIssue={hasStockIssue}
+                hasStockIssue={
+                  hasStockIssue
+                }
                 placing={placing}
                 actionError={actionError}
                 onEdit={goToStep}
-                onPlaceOrder={handlePlaceOrder}
+                onPlaceOrder={
+                  handlePlaceOrder
+                }
               />
             )}
           </div>
 
+          {/* ==================================================
+              ORDER SUMMARY
+          ================================================== */}
+
           <aside className="lg:sticky lg:top-6 lg:h-fit">
-            <OrderSummaryCard cart={cart} subtotal={subtotal} />
+            <OrderSummaryCard
+              cart={cart}
+              subtotal={subtotal}
+
+              /**
+               * Parent owns the actual applied coupon.
+               */
+              appliedCoupon={
+                appliedCoupon
+              }
+
+              /**
+               * Summary updates the parent when:
+               *
+               * Apply -> CouponValidationResult
+               * Remove -> null
+               */
+              onCouponChange={
+                setAppliedCoupon
+              }
+            />
           </aside>
         </div>
       </div>
