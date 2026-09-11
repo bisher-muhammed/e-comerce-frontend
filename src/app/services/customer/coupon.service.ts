@@ -1,3 +1,5 @@
+import type { AxiosRequestConfig } from "axios";
+
 import apiPrivate from "@/app/lib/api/apiPrivate";
 
 import {
@@ -106,12 +108,13 @@ export const normalizeCouponCode = (code: string): string => {
 // GET /api/v1/customer/coupons
 // ============================================================
 
-export const getAvailableCoupons = async (): Promise<
-  CustomerCoupon[]
-> => {
+export const getAvailableCoupons = async (
+  options?: AxiosRequestConfig
+): Promise<CustomerCoupon[]> => {
   const response =
     await apiPrivate.get<GetCouponsResponse>(
-      COUPON_API_PATH
+      COUPON_API_PATH,
+      options
     );
 
   return response.data.data;

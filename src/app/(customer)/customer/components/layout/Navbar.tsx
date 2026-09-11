@@ -7,6 +7,7 @@ import { Heart, ShoppingBag, MapPin } from "lucide-react";
 import { getCart } from "@/app/services/customer/cart.service";
 import { getWishlist } from "@/app/services/customer/wishlist.service";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { optionalAuthRequest } from "@/app/lib/api/apiPrivate";
 
 export default function Navbar() {
   const { user } = useCurrentUser();
@@ -25,10 +26,14 @@ export default function Navbar() {
 
     const fetchCounts = async () => {
       try {
+        /*
+         * Badge counts are decorative — a 401 here should blank the
+         * badges, not throw the visitor out of the page they are on.
+         */
         const [cartResponse, wishlistResponse] =
           await Promise.all([
-            getCart(),
-            getWishlist(),
+            getCart(optionalAuthRequest),
+            getWishlist(optionalAuthRequest),
           ]);
 
         if (cancelled) return;

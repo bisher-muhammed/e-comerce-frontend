@@ -1,3 +1,5 @@
+import type { AxiosRequestConfig } from "axios";
+
 import apiPrivate from "@/app/lib/api/apiPrivate";
 
 import type {
@@ -98,12 +100,13 @@ export const addToCart = async (
   return response.data;
 };
 
-export const getCart = async (): Promise<CartResponse> => {
+export const getCart = async (
+  options?: AxiosRequestConfig
+): Promise<CartResponse> => {
   const response = await apiPrivate.get<CartResponse>(
-    "/customer/cart"
+    "/customer/cart",
+    options
   );
-  console.log("CART DATA:", response.data);
-
 
   return response.data;
 };

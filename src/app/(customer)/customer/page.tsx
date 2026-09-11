@@ -25,6 +25,7 @@ import {
 } from "@/app/services/customer/coupon.service";
 
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { optionalAuthRequest } from "@/app/lib/api/apiPrivate";
 
 import CouponCard from "@/app/(customer)/coupon/component/CouponCard";
 
@@ -289,7 +290,9 @@ export default function CustomerPage() {
 
       // Try loading wishlist separately.
       try {
-        const wishlistResponse = await getWishlist();
+        const wishlistResponse = await getWishlist(
+          optionalAuthRequest
+        );
 
         const wishlistIds =
           wishlistResponse.data?.items.map(
@@ -329,7 +332,13 @@ export default function CustomerPage() {
       setCouponLoading(true);
       setCouponError("");
 
-      const data = await getAvailableCoupons();
+      /*
+       * Coupons are shown on the public home page, so a guest 401
+       * has to leave them where they are.
+       */
+      const data = await getAvailableCoupons(
+        optionalAuthRequest
+      );
 
       setCoupons(data);
     } catch (error: unknown) {
