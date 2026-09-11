@@ -5,12 +5,14 @@ import { useEffect, useState } from "react";
 import apiPrivate, {
   optionalAuthRequest,
 } from "@/app/lib/api/apiPrivate";
+import type { UserRole } from "@/app/lib/auth/roles";
 
-interface CurrentUser {
+export interface CurrentUser {
   id: number;
   firstName: string;
   lastName: string | null;
   email: string;
+  role: UserRole;
 }
 
 export function useCurrentUser() {

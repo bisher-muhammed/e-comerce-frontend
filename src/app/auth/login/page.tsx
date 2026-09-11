@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import apiPublic from "@/app/lib/api/apiPublic";
+import { isAdminRole } from "@/app/lib/auth/roles";
 import {
   loginSchema,
   type LoginInput,
@@ -32,12 +33,7 @@ export default function LoginPage() {
 
     const user = response.data.data.user;
 
-    console.log("Login successful:", user);
-
-    if (
-      user.role === "ADMIN" ||
-      user.role === "SUPER_ADMIN"
-    ) {
+    if (isAdminRole(user.role)) {
       router.replace("/admin/dashboard");
     } else {
       router.replace("/customer");

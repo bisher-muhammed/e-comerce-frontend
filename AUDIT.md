@@ -7,58 +7,6 @@
 
 ## 1. CRITICAL
 
-### C1. Logged-out visitors cannot browse the shop at all
-
-This is the most damaging bug in either repo. I traced the full chain and reproduced the logic path:
-
-```
-(customer)/layout.tsx  → renders <Navbar/> on every storefront page
-Navbar.tsx:12          → useCurrentUser()
-useCurrentUser.ts:23   → apiPrivate.get("/auth/me")
-                       → guest has no cookie → 401
-apiPrivate.ts          → interceptor fires refresh → /auth/refresh-token → also 401
-apiPrivate.ts:109      → window.location.href = "/auth/login"
-```
-
-[`apiPrivate.ts:102-111`](src/app/lib/api/apiPrivate.ts#L102-L111):
-
-```ts
-} catch (refreshError) {
-  processQueue(refreshError);
-  window.location.href = "/auth/login";
-  return Promise.reject(refreshError);
-}
-```
-
-`(customer)/layout.tsx` wraps the **home page, product listing, product detail, and cart**. A logged-out visitor is bounced to `/auth/login` before they can see any of it.
-
-The `catch {}` in `useCurrentUser` that sets `user = null` never gets to matter — the interceptor has already performed a hard browser navigation. This also defeats the deliberate guest handling in `(customer)/customer/page.tsx`, where `getWishlist()` is wrapped in a try/catch commented *"Guest user / authentication error. Don't show an error for this."*
-
-**Fix:** make "is there a session?" a non-redirecting probe. Either route `/auth/me` through `apiPublic`, or honour an opt-out flag:
-
-```ts
-if ((originalRequest as any).skipAuthRedirect) return Promise.reject(error);
-```
-
-set on `/auth/me` and every background/optional call (wishlist counts, cart badge).
-
-### C2. Zero route protection on `/admin`
-
-[`admin/layout.tsx`](src/app/admin/layout.tsx) is pure UI — sidebar, navbar, a `useState` for the drawer. No `useCurrentUser`, no role check, no redirect. And there is **no `middleware.ts` anywhere** in the project (`find . -name "middleware.*"` → empty).
-
-`grep -rn "useCurrentUser" src/` returns only **two** consumers: `accounts/layout.tsx` and `Navbar.tsx`. Nothing in the 20+ file `/admin` tree checks anything.
-
-The hook couldn't gate on role even if it wanted to — [`useCurrentUser.ts:7-12`](src/app/hooks/useCurrentUser.ts#L7-L12):
-
-```ts
-interface CurrentUser { id: number; firstName: string; lastName: string | null; email: string; }
-```
-
-**No `role` field.** The only role logic in the entire app is the post-login redirect at `login/page.tsx:38-39`.
-
-**Impact:** anyone typing `/admin/dashboard` or `/admin/products` gets the full admin chrome rendered. Data calls 401 (then C1 bounces them), but the admin IA, route names, and layout leak — and a logged-in *ordinary customer* renders the entire admin shell.
-
-**Fix:** add `middleware.ts` with `matcher: ["/admin/:path*", "/accounts/:path*", "/checkout", "/cart"]` doing a cookie-presence + edge role check, **and** add `role` to `CurrentUser` with a guard in `admin/layout.tsx`. Real enforcement stays server-side, but this gap is genuine.
 
 ### C3. There is no logout. Anywhere.
 

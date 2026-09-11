@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import AdminNavbar from "./components/AdminNavbar";
 import AdminSidebar from "./components/AdminSidebar";
+
+import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { isAdminRole } from "@/app/lib/auth/roles";
 
 export default function AdminLayout({
   children,
@@ -10,6 +15,31 @@ export default function AdminLayout({
   children: React.ReactNode;
 }>) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const router = useRouter();
+  const { user, isLoading } = useCurrentUser();
+
+  const allowed = isAdminRole(user?.role);
+
+  useEffect(() => {
+    if (isLoading || allowed) return;
+
+    router.replace(user ? "/customer" : "/auth/login");
+  }, [isLoading, allowed, user, router]);
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <p className="text-sm text-muted-foreground">
+          Checking access…
+        </p>
+      </div>
+    );
+  }
+
+  if (!allowed) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen w-full overflow-x-hidden bg-background">
