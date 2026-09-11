@@ -1,36 +1,13 @@
 # Frontend Audit — `e-comerce-frontend`
 
 **Audited commit:** `7f68caf` · **Size:** 109 source files, **66 of them (61%) are `"use client"`**
-**Stack:** Next.js 16.3.0 (App Router) · React 19.2 · Tailwind 4 · axios · zod 4
+**Stack:** Next.js 16.3.4 (App Router) · React 19.2 · Tailwind 4 · axios · zod 4
 
 ---
 
 ## 1. CRITICAL
 
-
-### C3. There is no logout. Anywhere.
-
-`grep -rn "logout|signOut|sign-out" src/` → **no matches**.
-
-Both admin logout buttons are inert — [`AdminSidebar.tsx:172-180`](src/app/admin/components/AdminSidebar.tsx#L172-L180) (mobile) and `:329-348` (desktop) render `<button type="button">` with a `LogOut` icon and **no `onClick`**. The customer `Navbar` has no logout control at all.
-
-Because the session lives in an httpOnly cookie, **the user cannot end their session from the UI**. On a shared or public machine the session persists until expiry.
-
-**Fix:** add `logout()` calling `POST /auth/logout` via `apiPrivate`, wire both buttons, add one to the customer Navbar, clear client state on success. *(Note: the backend has no logout endpoint either — see the backend report, H5.)*
-
-### C4. Next.js 16.3.0 — unauthenticated RCE
-
-```
-next  16.0.0 - 16.3.2   Severity: CRITICAL
-  Unauthenticated Remote Code Execution in Image Optimization API when AVIF files are used
-    → GHSA-2xp9-vwfh-vxw4
-  Unauthenticated Remote Code Execution on windows-hosted servers
-    → GHSA-p293-qw3h-jr36
-```
-
-You use `next/image` with remote patterns for `res.cloudinary.com` and `images.unsplash.com`, so the vulnerable path is live. Also `sharp <0.35.4` (high, libheif) and `js-yaml` (high).
-
-**Fix:** upgrade to `next@16.3.4`, then `npm audit fix` for the rest.
+All clear — C1–C4 have been fixed. `npm audit` reports 0 vulnerabilities.
 
 ---
 
@@ -236,19 +213,18 @@ Worth recording so they aren't re-reported: `OrderDetails` previously passed the
 ## 6. Suggested order of work
 
 1. **C1** — the shop is unbrowsable for logged-out visitors. Nothing else matters until this is fixed.
-2. **C4** — upgrade `next` to 16.3.4 (RCE). Ten minutes.
-3. **C3, C2** — add logout; add `middleware.ts` + `role` on `CurrentUser`.
-4. **H1, H3** — checkout correctness: the wrong displayed total and the stale idempotency key.
-5. **H5, M4, plus the dead wishlist button** — dead links and inert buttons. Cheap, high perceived-quality payoff.
-6. **H4, M1** — convert product detail + listing to server components with `generateMetadata`. Biggest SEO and LCP win.
-7. **M2, H7** — error/loading boundaries and a real toast system to replace `alert()`.
-8. **H6, M9** — image optimization and CLS on the checkout path.
+2. **C3, C2** — add logout; add `middleware.ts` + `role` on `CurrentUser`.
+3. **H1, H3** — checkout correctness: the wrong displayed total and the stale idempotency key.
+4. **H5, M4, plus the dead wishlist button** — dead links and inert buttons. Cheap, high perceived-quality payoff.
+5. **H4, M1** — convert product detail + listing to server components with `generateMetadata`. Biggest SEO and LCP win.
+6. **M2, H7** — error/loading boundaries and a real toast system to replace `alert()`.
+7. **H6, M9** — image optimization and CLS on the checkout path.
 
 ---
 
 ## 7. Confidence notes
 
-- **Executed and verified:** `npm audit` (C4), the `localStorage`/XSS/`middleware.ts` greps, the client-component count, and the `.env` git-history check.
+- **Executed and verified:** `npm audit` (the dependency advisories), the `localStorage`/XSS/`middleware.ts` greps, the client-component count, and the `.env` git-history check.
 - **Verified by reading the exact source:** C1 (I traced the full layout → Navbar → hook → interceptor chain myself), C2, C3, H1, H4, H5.
 - **Read from source, not executed in a browser:** the remaining HIGH/MEDIUM/LOW items. No runtime reproduction or Lighthouse run was performed.
 - **Not assessed:** actual Core Web Vitals under real network conditions, bundle sizes, cross-browser behaviour, and screen-reader testing with an actual assistive tech stack.

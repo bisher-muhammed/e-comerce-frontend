@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { Suspense, useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -14,7 +14,7 @@ import {
 
 const OTP_EXPIRY_SECONDS = 120;
 
-export default function VerifyOtpPage() {
+function VerifyOtpForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -491,5 +491,32 @@ export default function VerifyOtpPage() {
         </p>
       </div>
     </main>
+  );
+}
+
+/*
+ * `useSearchParams` opts the route out of static prerendering unless the
+ * reader sits inside a Suspense boundary, so the page shell stays static
+ * and only the form waits on the client for the `token` query param.
+ */
+export default function VerifyOtpPage() {
+  return (
+    <Suspense
+      fallback={
+        <main
+          className="
+            min-h-screen
+            bg-background
+            px-4
+            py-8
+            sm:px-6
+            sm:py-10
+            lg:py-12
+          "
+        />
+      }
+    >
+      <VerifyOtpForm />
+    </Suspense>
   );
 }
