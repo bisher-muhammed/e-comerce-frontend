@@ -3,14 +3,14 @@
 import { Check, CreditCard, MapPin, Truck } from "lucide-react";
 import type { Address } from "@/app/services/customer/address.service";
 import type { Cart } from "@/app/services/customer/cart.service";
-import type { ContactInfo, PaymentMethod, StepId } from "./types";
+import type { CheckoutTotals, ContactInfo, PaymentMethod, StepId, } from "./types";
 
 interface ReviewStepProps {
   contact: ContactInfo;
   address: Address | undefined;
   paymentMethod: PaymentMethod;
   cart: Cart;
-  subtotal: number;
+  totals: CheckoutTotals;
   hasStockIssue: boolean;
   placing: boolean;
   actionError: string;
@@ -23,7 +23,7 @@ export function ReviewCard({
   address,
   paymentMethod,
   cart,
-  subtotal,
+  totals,
   hasStockIssue,
   placing,
   actionError,
@@ -165,7 +165,7 @@ export function ReviewCard({
               : "Placing order..."
             : paymentMethod === "COD"
             ? "Place order"
-            : `Pay ₹${subtotal.toFixed(2)}`}
+            : `Pay ₹${totals.total.toFixed(2)}`}
         </button>
 
         <button

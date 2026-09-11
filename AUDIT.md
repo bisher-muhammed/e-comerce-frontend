@@ -6,30 +6,7 @@
 ---
 
 ## 1. CRITICAL
-
-All clear — C1–C4 have been fixed. `npm audit` reports 0 vulnerabilities.
-
----
-
 ## 2. HIGH
-
-### H1. Checkout shows two different amounts on the same screen
-
-[`ReviewCard.tsx:168`](src/app/(customer)/checkout/components/ReviewCard.tsx#L168) renders the pay button from the **undiscounted** subtotal:
-
-```tsx
-: `Pay ₹${subtotal.toFixed(2)}`}
-```
-
-`ReviewCard` receives `subtotal` only — `checkout/page.tsx:653-670` never passes `appliedCoupon`. Meanwhile the sidebar [`OrderSummaryCard.tsx:122-123`](src/app/(customer)/checkout/components/OrderSummaryCard.tsx#L122-L123) shows the discounted figure:
-
-```ts
-const finalTotal = appliedCoupon?.finalSubtotal ?? subtotal;
-```
-
-With `SUMMER50` applied the sidebar says **Total ₹360** while the button 200px away says **Pay ₹400**. Users will abandon or dispute the charge.
-
-**Fix:** pass `appliedCoupon` into `ReviewCard`; better, lift a single `totals` object so one source feeds both.
 
 ### H2. Checkout progress is destroyed on refresh
 

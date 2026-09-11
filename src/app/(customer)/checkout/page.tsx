@@ -52,6 +52,7 @@ import { OrderConfirmedStep } from "./components/Orderconfirmedstep";
 
 
 import type {
+  CheckoutTotals,
   ContactInfo,
   PaymentMethod,
   StepId,
@@ -199,6 +200,24 @@ export default function CheckoutPage() {
       0
     );
   }, [cart]);
+
+  // ============================================================
+  // TOTALS
+  // ============================================================
+
+  const totals = useMemo<CheckoutTotals>(
+    () => ({
+      subtotal,
+
+      discountAmount:
+        appliedCoupon?.discountAmount ?? 0,
+
+      total:
+        appliedCoupon?.finalSubtotal ??
+        subtotal,
+    }),
+    [subtotal, appliedCoupon]
+  );
 
   // ============================================================
   // STOCK CHECK
@@ -351,16 +370,12 @@ export default function CheckoutPage() {
           /**
            * IMPORTANT:
            *
-           * This amount comes from the backend.
+           * This amount comes from the backend, in paise,
+           * already net of the coupon discount it applied
+           * itself — it is the authoritative charge.
            *
-           * After coupon support is implemented
-           * correctly on the backend, this should be:
-           *
-           * ₹360 -> 36000 paise
-           *
-           * instead of:
-           *
-           * ₹400 -> 40000 paise
+           * `totals.total` is only what we render; if the two
+           * ever diverge, the backend wins.
            */
           amount: razorpay.amount,
 
@@ -657,7 +672,7 @@ export default function CheckoutPage() {
                   paymentMethod
                 }
                 cart={cart}
-                subtotal={subtotal}
+                totals={totals}
                 hasStockIssue={
                   hasStockIssue
                 }
@@ -678,7 +693,7 @@ export default function CheckoutPage() {
           <aside className="lg:sticky lg:top-6 lg:h-fit">
             <OrderSummaryCard
               cart={cart}
-              subtotal={subtotal}
+              totals={totals}
 
               /**
                * Parent owns the actual applied coupon.
