@@ -2,15 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { Heart, ShoppingBag, MapPin } from "lucide-react";
+import { Heart, ShoppingBag, MapPin, LogOut, } from "lucide-react";
 
 import { getCart } from "@/app/services/customer/cart.service";
 import { getWishlist } from "@/app/services/customer/wishlist.service";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { useLogout } from "@/app/hooks/useLogout";
 import { optionalAuthRequest } from "@/app/lib/api/apiPrivate";
 
 export default function Navbar() {
   const { user } = useCurrentUser();
+  const { logout, isLoggingOut } = useLogout();
 
   const [cartCount, setCartCount] = useState(0);
   const [wishlistCount, setWishlistCount] = useState(0);
@@ -154,6 +156,26 @@ export default function Navbar() {
               </span>
             )}
           </Link>
+
+          {/* Sign out */}
+          {user && (
+            <button
+              type="button"
+              onClick={logout}
+              disabled={isLoggingOut}
+              aria-label="Sign out"
+              title="Sign out"
+              className="
+                text-gray-600
+                transition-colors
+                hover:text-black
+                disabled:pointer-events-none
+                disabled:opacity-50
+              "
+            >
+              <LogOut size={20} />
+            </button>
+          )}
 
         </div>
       </div>

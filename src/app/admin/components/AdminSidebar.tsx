@@ -14,6 +14,8 @@ import {
   X,
 } from "lucide-react";
 
+import { useLogout } from "@/app/hooks/useLogout";
+
 interface AdminSidebarProps {
   open: boolean;
   onClose: () => void;
@@ -85,6 +87,7 @@ export default function AdminSidebar({
   onClose,
 }: AdminSidebarProps) {
   const pathname = usePathname();
+  const { logout, isLoggingOut } = useLogout();
 
   const isActive = (href: string) => {
     if (href === "/admin/dashboard") {
@@ -162,6 +165,8 @@ export default function AdminSidebar({
               {/* Logout - Small screens */}
               <button
                 type="button"
+                onClick={logout}
+                disabled={isLoggingOut}
                 aria-label="Log out"
                 className="
                   flex
@@ -173,6 +178,8 @@ export default function AdminSidebar({
                   text-muted-foreground
                   hover:bg-secondary
                   hover:text-foreground
+                  disabled:pointer-events-none
+                  disabled:opacity-50
                   lg:hidden
                 "
               >
@@ -328,6 +335,8 @@ export default function AdminSidebar({
           >
             <button
               type="button"
+              onClick={logout}
+              disabled={isLoggingOut}
               className="
                 flex
                 h-10
@@ -341,11 +350,15 @@ export default function AdminSidebar({
                 transition-colors
                 hover:bg-secondary
                 hover:text-foreground
+                disabled:pointer-events-none
+                disabled:opacity-50
               "
             >
               <LogOut className="h-[17px] w-[17px] shrink-0" />
 
-              <span>Log out</span>
+              <span>
+                {isLoggingOut ? "Logging out…" : "Log out"}
+              </span>
             </button>
           </div>
         </div>
