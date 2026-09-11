@@ -11,7 +11,10 @@ import ProductCard, {
   type Product,
 } from "./components/products/ProductCard";
 
-import { getProducts } from "@/app/services/customer/product.service";
+import {
+  getProducts,
+  type ProductPagination,
+} from "@/app/services/customer/product.service";
 
 import { getWishlist } from "@/app/services/customer/wishlist.service";
 
@@ -24,6 +27,8 @@ import {
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
 
 import CouponCard from "@/app/(customer)/coupon/component/CouponCard";
+
+const PRODUCTS_PER_PAGE = 12;
 
 // ============================================================
 // HERO BANNER
@@ -230,6 +235,11 @@ export default function CustomerPage() {
 
   const [products, setProducts] = useState<Product[]>([]);
 
+  const [page, setPage] = useState(1);
+
+  const [pagination, setPagination] =
+    useState<ProductPagination | null>(null);
+
   const [wishlistProductIds, setWishlistProductIds] =
     useState<Set<number>>(new Set());
 
@@ -254,7 +264,7 @@ export default function CustomerPage() {
   // LOAD PRODUCTS + WISHLIST
   // ============================================================
 
-  const loadProducts = async () => {
+  const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
       setError("");
@@ -266,9 +276,16 @@ export default function CustomerPage() {
        * may not be authenticated.
        */
 
-      const productsResponse = await getProducts();
+      const productsResponse = await getProducts({
+        page,
+        limit: PRODUCTS_PER_PAGE,
+      });
 
       setProducts(productsResponse.data);
+
+      setPagination(
+        productsResponse.pagination ?? null
+      );
 
       // Try loading wishlist separately.
       try {
@@ -301,7 +318,7 @@ export default function CustomerPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   // ============================================================
   // LOAD COUPONS
@@ -342,8 +359,26 @@ export default function CustomerPage() {
 
   useEffect(() => {
     loadProducts();
+  }, [loadProducts]);
+
+  useEffect(() => {
     loadCoupons();
   }, [loadCoupons]);
+
+  // ============================================================
+  // PAGE CHANGE
+  // ============================================================
+
+  const goToPage = (nextPage: number) => {
+    setPage(nextPage);
+
+    document
+      .getElementById("products")
+      ?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+  };
 
   // ============================================================
   // CLAIM COUPON
@@ -431,8 +466,12 @@ export default function CustomerPage() {
           <p className="text-sm text-muted-foreground">
             {loading
               ? "Loading the latest collection..."
-              : `${products.length} item${
-                  products.length === 1
+              : `${
+                  pagination?.total ??
+                  products.length
+                } item${
+                  (pagination?.total ??
+                    products.length) === 1
                     ? ""
                     : "s"
                 } available`}
@@ -499,6 +538,46 @@ export default function CustomerPage() {
                   }
                 />
               ))}
+            </div>
+          )}
+
+        {/* PAGINATION */}
+
+        {!loading &&
+          !error &&
+          pagination &&
+          pagination.totalPages > 1 && (
+            <div className="mt-10 flex items-center justify-between border-t border-border pt-6">
+              <button
+                type="button"
+                disabled={
+                  !pagination.hasPreviousPage
+                }
+                onClick={() =>
+                  goToPage(pagination.page - 1)
+                }
+                className="border border-foreground px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground hover:text-primary-foreground disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+              >
+                Previous
+              </button>
+
+              <span className="text-sm text-muted-foreground">
+                Page {pagination.page} of{" "}
+                {pagination.totalPages}
+              </span>
+
+              <button
+                type="button"
+                disabled={
+                  !pagination.hasNextPage
+                }
+                onClick={() =>
+                  goToPage(pagination.page + 1)
+                }
+                className="border border-foreground px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-foreground hover:text-primary-foreground disabled:cursor-not-allowed disabled:border-border disabled:text-muted-foreground disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
+              >
+                Next
+              </button>
             </div>
           )}
       </div>

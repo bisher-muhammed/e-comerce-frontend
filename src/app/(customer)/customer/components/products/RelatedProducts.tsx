@@ -19,11 +19,14 @@ export default function RelatedProducts({
   useEffect(() => {
     const load = async () => {
       try {
-        const data = await getProducts();
+        const data = await getProducts({
+          categoryId,
+          limit: 5,
+        });
+
         const filtered = data.data
           .filter(
-            (p: Product) =>
-              p.category.id === categoryId && p.id !== excludeProductId
+            (p: Product) => p.id !== excludeProductId
           )
           .slice(0, 4);
         setRelated(filtered);
