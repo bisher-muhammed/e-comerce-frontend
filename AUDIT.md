@@ -8,14 +8,6 @@
 ## 1. CRITICAL
 ## 2. HIGH
 
-### H2. Checkout progress is destroyed on refresh
-
-All wizard state in `checkout/page.tsx` is plain `useState` — `currentStep`, `completedSteps`, `contact`, `selectedAddressId`, `paymentMethod`, `appliedCoupon`. Nothing is persisted.
-
-A refresh, a back-nav, or **any 401 on a background call (which C1 turns into a full page navigation)** drops the user to step 1 with an empty email/phone and no coupon. On mobile, where tab eviction is routine, this is a frequent abandonment path.
-
-**Fix:** persist to `sessionStorage` keyed by cart id, or encode `step` in the URL (`?step=payment`) so back/forward and refresh behave.
-
 ### H3. Retrying a failed order reuses a stale idempotency key
 
 [`checkout/page.tsx:122-123`](src/app/(customer)/checkout/page.tsx#L122-L123):

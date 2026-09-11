@@ -39,8 +39,11 @@ import {
 } from "@/app/lib/api/apiError";
 
 import {
+  validateCoupon,
   type CouponValidationResult,
 } from "@/app/services/customer/coupon.service";
+
+import { clearCheckoutDraft, readCheckoutDraft, reconcileDraftSteps, writeCheckoutDraft, } from "./lib/checkoutDraft";
 
 import { CheckoutStepper } from "./components/Checkoutstepper";
 import { OrderSummaryCard } from "./components/OrderSummaryCard";
@@ -58,6 +61,15 @@ import type {
   StepId,
 } from "./components/types";
 
+const calculateSubtotal = (cart: Cart): number =>
+  cart.items.reduce(
+    (total, item) =>
+      total +
+      Number(item.productVariant.price) *
+        item.quantity,
+    0
+  );
+
 export default function CheckoutPage() {
   const router = useRouter();
 
@@ -74,6 +86,9 @@ export default function CheckoutPage() {
 
   const [loadError, setLoadError] =
     useState("");
+
+  const [draftRestored, setDraftRestored] =
+    useState(false);
 
   // ============================================================
   // CHECKOUT STEPS
@@ -149,19 +164,79 @@ export default function CheckoutPage() {
 
         if (cancelled) return;
 
-        setCart(cartRes.data);
-        setAddresses(addressRes.data);
+        const loadedCart = cartRes.data;
+        const loadedAddresses = addressRes.data;
 
-        const defaultAddress =
-          addressRes.data.find(
-            (address) => address.isDefault
-          );
-
-        setSelectedAddressId(
-          defaultAddress?.id ??
-            addressRes.data[0]?.id ??
-            null
+        const draft = readCheckoutDraft(
+          loadedCart.id
         );
+
+        const defaultAddressId =
+          loadedAddresses.find(
+            (address) => address.isDefault
+          )?.id ??
+          loadedAddresses[0]?.id ??
+          null;
+
+        const restoredAddressId =
+          draft &&
+          loadedAddresses.some(
+            (address) =>
+              address.id ===
+              draft.selectedAddressId
+          )
+            ? draft.selectedAddressId
+            : defaultAddressId;
+
+        let restoredCoupon: CouponValidationResult | null =
+          null;
+
+        if (draft?.couponCode) {
+          try {
+            restoredCoupon =
+              await validateCoupon({
+                code: draft.couponCode,
+                subtotal:
+                  calculateSubtotal(
+                    loadedCart
+                  ),
+              });
+          } catch {
+            restoredCoupon = null;
+          }
+        }
+
+        if (cancelled) return;
+
+        setCart(loadedCart);
+        setAddresses(loadedAddresses);
+        setSelectedAddressId(
+          restoredAddressId
+        );
+
+        if (draft) {
+          const steps =
+            reconcileDraftSteps(
+              draft,
+              restoredAddressId !== null
+            );
+
+          setContact(draft.contact);
+          setPaymentMethod(
+            draft.paymentMethod
+          );
+          setCompletedSteps(
+            steps.completedSteps
+          );
+          setCurrentStep(
+            steps.currentStep
+          );
+          setAppliedCoupon(
+            restoredCoupon
+          );
+        }
+
+        setDraftRestored(true);
       } catch (err) {
         if (!cancelled) {
           setLoadError(
@@ -187,19 +262,13 @@ export default function CheckoutPage() {
   // SUBTOTAL
   // ============================================================
 
-  const subtotal = useMemo(() => {
-    if (!cart) return 0;
-
-    return cart.items.reduce(
-      (total, item) =>
-        total +
-        Number(
-          item.productVariant.price
-        ) *
-          item.quantity,
-      0
-    );
-  }, [cart]);
+  const subtotal = useMemo(
+    () =>
+      cart
+        ? calculateSubtotal(cart)
+        : 0,
+    [cart]
+  );
 
   // ============================================================
   // TOTALS
@@ -233,6 +302,39 @@ export default function CheckoutPage() {
       ) ?? false,
     [cart]
   );
+
+  // ============================================================
+  // PERSIST PROGRESS
+  // ============================================================
+
+  const cartId = cart?.id ?? null;
+
+  useEffect(() => {
+
+    if (!draftRestored || confirmedOrder) {
+      return;
+    }
+
+    writeCheckoutDraft(cartId, {
+      currentStep,
+      completedSteps,
+      contact,
+      selectedAddressId,
+      paymentMethod,
+      couponCode:
+        appliedCoupon?.coupon.code ?? null,
+    });
+  }, [
+    draftRestored,
+    confirmedOrder,
+    cartId,
+    currentStep,
+    completedSteps,
+    contact,
+    selectedAddressId,
+    paymentMethod,
+    appliedCoupon,
+  ]);
 
   // ============================================================
   // SELECTED ADDRESS
@@ -344,6 +446,8 @@ export default function CheckoutPage() {
       if (mode === "COD") {
         setPlacing(false);
 
+        clearCheckoutDraft(cartId);
+
         setConfirmedOrder({
           id: order.id,
         });
@@ -367,16 +471,6 @@ export default function CheckoutPage() {
         new window.Razorpay({
           key: razorpay.keyId,
 
-          /**
-           * IMPORTANT:
-           *
-           * This amount comes from the backend, in paise,
-           * already net of the coupon discount it applied
-           * itself — it is the authoritative charge.
-           *
-           * `totals.total` is only what we render; if the two
-           * ever diverge, the backend wins.
-           */
           amount: razorpay.amount,
 
           currency: razorpay.currency,
@@ -405,6 +499,8 @@ export default function CheckoutPage() {
               );
 
               setPlacing(false);
+
+              clearCheckoutDraft(cartId);
 
               setConfirmedOrder({
                 id: order.id,
