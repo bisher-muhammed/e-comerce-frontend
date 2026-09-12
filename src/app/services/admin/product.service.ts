@@ -13,8 +13,26 @@ const isNewProductImage = (
 ): image is NewProductImageFormData => "file" in image;
 
 
-export const getProducts = async () => {
-  return apiPrivate.get("/admin/products");
+export interface ProductPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface ListProductsParams {
+  page?: number;
+  limit?: number;
+}
+
+export const getProducts = async (
+  params?: ListProductsParams
+) => {
+  return apiPrivate.get("/admin/products", {
+    params,
+  });
 };
 
 

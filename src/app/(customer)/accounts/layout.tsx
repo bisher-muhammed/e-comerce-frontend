@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 
@@ -12,14 +13,27 @@ interface AccountLayoutProps {
 const NAV_ITEMS = [
   { label: "Addresses", href: "/accounts/address" },
   { label: "Orders", href: "/accounts/orders" },
-  { label: "Profile", href: "/accounts/profile" },
+  { label: "Wishlist", href: "/accounts/wishlist" },
 ];
 
 export default function AccountLayout({
   children,
 }: AccountLayoutProps) {
   const pathname = usePathname();
-  const { user } = useCurrentUser();
+  const router = useRouter();
+  const { user, isLoading } = useCurrentUser();
+
+  /*
+   * The account area is the one part of the storefront that genuinely
+   * requires a session. The API interceptor no longer redirects on the
+   * session probe — guests have to be able to browse — so the guard
+   * lives here, at the route boundary.
+   */
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.replace("/auth/login");
+    }
+  }, [isLoading, user, router]);
 
   if (!user) {
     return null;
@@ -65,7 +79,7 @@ export default function AccountLayout({
             </nav>
 
             <Link
-              href="/shop"
+              href="/customer"
               className="mt-10 hidden items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground md:flex"
             >
               <ChevronLeft size={14} />

@@ -6,10 +6,17 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import apiPublic from "@/app/lib/api/apiPublic";
+import { applyServerErrors } from "@/app/lib/api/formErrors";
+import { isAdminRole } from "@/app/lib/auth/roles";
 import {
   loginSchema,
   type LoginInput,
 } from "@/app/validations/customer/auth.validation";
+
+const FORM_FIELDS = [
+  "email",
+  "password",
+] as const;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,6 +24,7 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -32,24 +40,18 @@ export default function LoginPage() {
 
     const user = response.data.data.user;
 
-    console.log("Login successful:", user);
-
-    if (
-      user.role === "ADMIN" ||
-      user.role === "SUPER_ADMIN"
-    ) {
+    if (isAdminRole(user.role)) {
       router.replace("/admin/dashboard");
     } else {
       router.replace("/customer");
     }
-  } catch (error: any) {
-    console.error("Login failed:", error);
-
-    const message =
-      error.response?.data?.message ||
-      "Unable to log in. Please try again.";
-
-    alert(message);
+  } catch (error) {
+    applyServerErrors(
+      error,
+      setError,
+      FORM_FIELDS,
+      "Unable to log in. Please try again."
+    );
   }
 };
 
@@ -172,26 +174,13 @@ export default function LoginPage() {
           {/* Password */}
 
           <div>
-            <div className="mb-1.5 flex items-center justify-between">
+            <div className="mb-1.5">
               <label
                 htmlFor="password"
                 className="block text-sm font-medium"
               >
                 Password
               </label>
-
-              <Link
-                href="/auth/forgot-password"
-                className="
-                  text-sm
-                  text-muted-foreground
-                  underline
-                  underline-offset-4
-                  hover:text-foreground
-                "
-              >
-                Forgot password?
-              </Link>
             </div>
 
             <input
@@ -221,6 +210,21 @@ export default function LoginPage() {
               </p>
             )}
           </div>
+
+          {/* Server Error */}
+
+          {errors.root && (
+            <p
+              role="alert"
+              className="
+                text-center
+                text-sm
+                text-destructive
+              "
+            >
+              {errors.root.message}
+            </p>
+          )}
 
           {/* Submit */}
 
@@ -259,7 +263,7 @@ export default function LoginPage() {
             min-[1201px]:max-[1400px]:mt-4
           "
         >
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link
             href="/auth/register"
             className="

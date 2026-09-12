@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import { Pencil, Trash2, Tag, ImageOff } from "lucide-react";
 
 interface ProductColorImage {
@@ -149,13 +151,14 @@ export default function ProductGrid({
             "
           >
             {/* Image */}
-            <div className="aspect-square w-full overflow-hidden border-b border-border bg-secondary/40">
+            <div className="relative aspect-square w-full overflow-hidden border-b border-border bg-secondary/40">
               {primaryImage ? (
-                <img
+                <Image
                   src={primaryImage.url}
                   alt={primaryImage.altText ?? product.name}
-                  className="block h-full w-full object-cover transition-transform duration-200 group-hover:scale-105"
-                  loading="lazy"
+                  fill
+                  sizes="(min-width: 1280px) 25vw, (min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                  className="object-cover transition-transform duration-200 group-hover:scale-105"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center">

@@ -8,13 +8,13 @@ export default function Footer() {
         <p>© {new Date().getFullYear()} STORE. All rights reserved.</p>
 
         <nav className="flex gap-6">
-          <Link href="/shop" className="hover:text-black">
+          <Link href="/customer" className="hover:text-black">
             Shop
           </Link>
-          <Link href="/about" className="hover:text-black">
-            About
+          <Link href="/coupon" className="hover:text-black">
+            Offers
           </Link>
-          <Link href="/account" className="hover:text-black">
+          <Link href="/accounts/orders" className="hover:text-black">
             Account
           </Link>
         </nav>

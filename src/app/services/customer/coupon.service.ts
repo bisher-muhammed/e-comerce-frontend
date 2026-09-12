@@ -1,3 +1,5 @@
+import type { AxiosRequestConfig } from "axios";
+
 import apiPrivate from "@/app/lib/api/apiPrivate";
 
 import {
@@ -101,17 +103,24 @@ export const normalizeCouponCode = (code: string): string => {
   return code.trim().replace(/\s+/g, "").toUpperCase();
 };
 
+const toAmount = (value: unknown): number => {
+  const amount = Number(value);
+
+  return Number.isFinite(amount) ? amount : 0;
+};
+
 // ============================================================
 // GET AVAILABLE COUPONS
 // GET /api/v1/customer/coupons
 // ============================================================
 
-export const getAvailableCoupons = async (): Promise<
-  CustomerCoupon[]
-> => {
+export const getAvailableCoupons = async (
+  options?: AxiosRequestConfig
+): Promise<CustomerCoupon[]> => {
   const response =
     await apiPrivate.get<GetCouponsResponse>(
-      COUPON_API_PATH
+      COUPON_API_PATH,
+      options
     );
 
   return response.data.data;
@@ -143,7 +152,14 @@ export const validateCoupon = async (
       }
     );
 
-  return response.data.data;
+  const result = response.data.data;
+
+  return {
+    ...result,
+    subtotal: toAmount(result.subtotal),
+    discountAmount: toAmount(result.discountAmount),
+    finalSubtotal: toAmount(result.finalSubtotal),
+  };
 };
 
 // ============================================================

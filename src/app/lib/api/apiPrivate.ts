@@ -1,7 +1,30 @@
 import axios, {
   type AxiosError,
+  type AxiosRequestConfig,
   type InternalAxiosRequestConfig,
 } from "axios";
+
+declare module "axios" {
+  interface AxiosRequestConfig {
+    /*
+     * Opt out of the "401 means the session is gone, send the browser
+     * to /auth/login" behaviour below.
+     *
+     * Background and optional calls (the session probe, badge counts,
+     * guest-visible coupons) must fail quietly — a logged-out visitor
+     * has to be able to browse the storefront.
+     */
+    skipAuthRedirect?: boolean;
+  }
+}
+
+/*
+ * Pass as (or spread into) the config of any request that is allowed
+ * to 401 without ending the visitor's session.
+ */
+export const optionalAuthRequest: AxiosRequestConfig = {
+  skipAuthRedirect: true,
+};
 
 const apiPrivate = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
@@ -45,12 +68,18 @@ apiPrivate.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    // Don't refresh if the failed request itself is the refresh endpoint.
-    if (originalRequest.url?.includes("/auth/refresh-token")) {
-      window.location.href = "/auth/login";
+    /*
+     * Optional calls still attempt a refresh — a logged-in user with an
+     * expired access token should stay logged in — but a failed refresh
+     * leaves them where they are instead of bouncing them to login.
+     */
+    const redirectToLogin = () => {
+      if (originalRequest?.skipAuthRedirect) return;
 
-      return Promise.reject(error);
-    }
+      if (typeof window === "undefined") return;
+
+      window.location.href = "/auth/login";
+    };
 
     // Prevent infinite retry loops.
     if (originalRequest._retry) {
@@ -106,7 +135,7 @@ apiPrivate.interceptors.response.use(
        */
       processQueue(refreshError);
 
-      window.location.href = "/auth/login";
+      redirectToLogin();
 
       return Promise.reject(refreshError);
     } finally {

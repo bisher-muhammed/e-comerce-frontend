@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import CategoryForm from "../components/CategoryForm";
@@ -16,6 +16,9 @@ import {
 } from "@/app/services/admin/category.service";
 
 import type { CreateCategoryFormData } from "@/app/validations/admin/category.validation";
+import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { useToast } from "@/app/components/feedback/ToastProvider";
+import { useConfirm } from "@/app/components/feedback/ConfirmProvider";
 
 export default function CategoriesPage() {
   const [categories, setCategories] = useState<Category[]>([]);
@@ -26,8 +29,11 @@ export default function CategoriesPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const toast = useToast();
+  const confirm = useConfirm();
 
-  const loadCategories = async () => {
+
+  const loadCategories = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -39,14 +45,21 @@ export default function CategoriesPage() {
         "Failed to load categories:",
         error
       );
+
+      toast.error(
+        getApiErrorMessage(
+          error,
+          "Failed to load categories"
+        )
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     loadCategories();
-  }, []);
+  }, [loadCategories]);
 
   const handleCreate = async (
     data: CreateCategoryFormData
@@ -60,10 +73,19 @@ export default function CategoriesPage() {
       setEditingCategory(null);
 
       await loadCategories();
+
+      toast.success("Category created.");
     } catch (error) {
       console.error(
         "Failed to create category:",
         error
+      );
+
+      toast.error(
+        getApiErrorMessage(
+          error,
+          "Failed to create category"
+        )
       );
     } finally {
       setSaving(false);
@@ -88,10 +110,19 @@ export default function CategoriesPage() {
       setEditingCategory(null);
 
       await loadCategories();
+
+      toast.success("Category updated.");
     } catch (error) {
       console.error(
         "Failed to update category:",
         error
+      );
+
+      toast.error(
+        getApiErrorMessage(
+          error,
+          "Failed to update category"
+        )
       );
     } finally {
       setSaving(false);
@@ -100,9 +131,13 @@ export default function CategoriesPage() {
 
 
   const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this category?"
-    );
+    const confirmed = await confirm({
+      title: "Delete this category?",
+      description:
+        "This cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
 
     if (!confirmed) return;
 
@@ -110,10 +145,19 @@ export default function CategoriesPage() {
       await deleteCategory(id);
 
       await loadCategories();
+
+      toast.success("Category deleted.");
     } catch (error) {
       console.error(
         "Failed to delete category:",
         error
+      );
+
+      toast.error(
+        getApiErrorMessage(
+          error,
+          "Failed to delete category"
+        )
       );
     }
   };
@@ -128,10 +172,23 @@ export default function CategoriesPage() {
       });
 
       await loadCategories();
+
+      toast.success(
+        category.isActive
+          ? "Category deactivated."
+          : "Category activated."
+      );
     } catch (error) {
       console.error(
         "Failed to update category status:",
         error
+      );
+
+      toast.error(
+        getApiErrorMessage(
+          error,
+          "Failed to update category status"
+        )
       );
     }
   };

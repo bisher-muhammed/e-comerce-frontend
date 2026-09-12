@@ -2,13 +2,35 @@
 
 import { Bell, Menu } from "lucide-react";
 
+import type { CurrentUser } from "@/app/hooks/useCurrentUser";
+import { getRoleLabel } from "@/app/lib/auth/roles";
+
 interface AdminNavbarProps {
   onMenuClick: () => void;
+  sidebarOpen?: boolean;
+  user: CurrentUser | null;
 }
+
+const getInitials = (user: CurrentUser): string => {
+  const initials = [user.firstName, user.lastName]
+    .map((part) => part?.trim().charAt(0) ?? "")
+    .join("")
+    .toUpperCase();
+
+  return initials || user.email.charAt(0).toUpperCase();
+};
 
 export default function AdminNavbar({
   onMenuClick,
+  sidebarOpen = false,
+  user,
 }: AdminNavbarProps) {
+  const fullName = user
+    ? [user.firstName, user.lastName]
+        .filter(Boolean)
+        .join(" ")
+    : "";
+
   return (
     <header
       className="
@@ -32,6 +54,8 @@ export default function AdminNavbar({
           type="button"
           onClick={onMenuClick}
           aria-label="Open sidebar"
+          aria-controls="admin-sidebar"
+          aria-expanded={sidebarOpen}
           className="
             flex
             h-9
@@ -45,7 +69,7 @@ export default function AdminNavbar({
             xl:hidden
           "
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
 
         <div className="min-w-0">
@@ -93,43 +117,45 @@ export default function AdminNavbar({
         </button>
 
         {/* User */}
-        <div
-          className="
-            hidden
-            items-center
-            gap-3
-            border-l
-            border-border
-            pl-4
-            sm:flex
-          "
-        >
+        {user && (
           <div
             className="
-              flex
-              h-8
-              w-8
-              shrink-0
+              hidden
               items-center
-              justify-center
-              bg-secondary
-              text-xs
-              font-medium
+              gap-3
+              border-l
+              border-border
+              pl-4
+              sm:flex
             "
           >
-            SA
-          </div>
+            <div
+              className="
+                flex
+                h-8
+                w-8
+                shrink-0
+                items-center
+                justify-center
+                bg-secondary
+                text-xs
+                font-medium
+              "
+            >
+              {getInitials(user)}
+            </div>
 
-          <div className="leading-tight">
-            <p className="text-sm font-medium">
-              Super Admin
-            </p>
+            <div className="min-w-0 leading-tight">
+              <p className="truncate text-sm font-medium">
+                {fullName || user.email}
+              </p>
 
-            <p className="text-xs text-muted-foreground">
-              Administrator
-            </p>
+              <p className="text-xs text-muted-foreground">
+                {getRoleLabel(user.role)}
+              </p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </header>
   );

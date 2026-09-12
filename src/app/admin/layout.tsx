@@ -1,32 +1,17 @@
-"use client";
+import type { Metadata } from "next";
 
-import { useState } from "react";
-import AdminNavbar from "./components/AdminNavbar";
-import AdminSidebar from "./components/AdminSidebar";
+import AdminShell from "./components/AdminShell";
+
+export const metadata: Metadata = {
+  title: { absolute: "Store Admin" },
+  description: "Store administration",
+  robots: { index: false, follow: false },
+};
 
 export default function AdminLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-background">
-      <AdminSidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-
-      <div className="flex min-h-screen w-full min-w-0 flex-col lg:ml-64 lg:w-[calc(100%-16rem)]">
-        <AdminNavbar
-          onMenuClick={() => setSidebarOpen(true)}
-        />
-
-        <main className="min-w-0 flex-1">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+  return <AdminShell>{children}</AdminShell>;
 }

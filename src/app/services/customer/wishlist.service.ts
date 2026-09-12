@@ -1,3 +1,5 @@
+import type { AxiosRequestConfig } from "axios";
+
 import apiPrivate from "@/app/lib/api/apiPrivate";
 
 export interface WishlistImage {
@@ -76,9 +78,12 @@ export interface WishlistItemResponse {
 
 // GET WISHLIST
 
-export const getWishlist = async (): Promise<WishlistResponse> => {
+export const getWishlist = async (
+  options?: AxiosRequestConfig
+): Promise<WishlistResponse> => {
   const response = await apiPrivate.get<WishlistResponse>(
-    "/customer/wishlist"
+    "/customer/wishlist",
+    options
   );
 
   return response.data;

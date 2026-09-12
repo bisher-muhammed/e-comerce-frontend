@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
@@ -9,10 +10,11 @@ import {
   Tags,
   Users,
   UserCog,
-  Settings,
   LogOut,
   X,
 } from "lucide-react";
+
+import { useLogout } from "@/app/hooks/useLogout";
 
 interface AdminSidebarProps {
   open: boolean;
@@ -73,18 +75,89 @@ const management = [
     href: "/admin/admins",
     icon: UserCog,
   },
-  {
-    label: "Settings",
-    href: "/admin/settings",
-    icon: Settings,
-  },
 ];
+
+const FOCUSABLE_SELECTOR = [
+  "a[href]",
+  "button:not([disabled])",
+  "input:not([disabled])",
+  "select:not([disabled])",
+  "textarea:not([disabled])",
+  '[tabindex]:not([tabindex="-1"])',
+].join(", ");
 
 export default function AdminSidebar({
   open,
   onClose,
 }: AdminSidebarProps) {
   const pathname = usePathname();
+  const { logout, isLoggingOut } = useLogout();
+
+  const asideRef = useRef<HTMLElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const aside = asideRef.current;
+
+    if (!aside) return;
+
+    const previouslyFocused =
+      document.activeElement as HTMLElement | null;
+
+    const getFocusable = () =>
+      Array.from(
+        aside.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR)
+      ).filter((element) => element.offsetParent !== null);
+
+    getFocusable()[0]?.focus();
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+
+      if (event.key !== "Tab") return;
+
+      const focusable = getFocusable();
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey) {
+        if (active === first || !aside.contains(active)) {
+          event.preventDefault();
+          last.focus();
+        }
+        return;
+      }
+
+      if (active === last || !aside.contains(active)) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [open]);
 
   const isActive = (href: string) => {
     if (href === "/admin/dashboard") {
@@ -99,6 +172,7 @@ export default function AdminSidebar({
       {/* Mobile overlay */}
       {open && (
         <div
+          aria-hidden="true"
           className="fixed inset-0 z-40 bg-black/30 lg:hidden"
           onClick={onClose}
         />
@@ -106,6 +180,11 @@ export default function AdminSidebar({
 
       {/* Sidebar */}
       <aside
+        ref={asideRef}
+        id="admin-sidebar"
+        aria-label="Admin navigation"
+        role={open ? "dialog" : undefined}
+        aria-modal={open ? true : undefined}
         className={`
           fixed
           left-0
@@ -162,6 +241,8 @@ export default function AdminSidebar({
               {/* Logout - Small screens */}
               <button
                 type="button"
+                onClick={logout}
+                disabled={isLoggingOut}
                 aria-label="Log out"
                 className="
                   flex
@@ -173,6 +254,8 @@ export default function AdminSidebar({
                   text-muted-foreground
                   hover:bg-secondary
                   hover:text-foreground
+                  disabled:pointer-events-none
+                  disabled:opacity-50
                   lg:hidden
                 "
               >
@@ -328,6 +411,8 @@ export default function AdminSidebar({
           >
             <button
               type="button"
+              onClick={logout}
+              disabled={isLoggingOut}
               className="
                 flex
                 h-10
@@ -341,11 +426,15 @@ export default function AdminSidebar({
                 transition-colors
                 hover:bg-secondary
                 hover:text-foreground
+                disabled:pointer-events-none
+                disabled:opacity-50
               "
             >
               <LogOut className="h-[17px] w-[17px] shrink-0" />
 
-              <span>Log out</span>
+              <span>
+                {isLoggingOut ? "Logging out…" : "Log out"}
+              </span>
             </button>
           </div>
         </div>

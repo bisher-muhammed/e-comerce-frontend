@@ -1,45 +1,30 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import ProductCard, { type Product } from "@/app/(customer)/customer/components/products/ProductCard";
-import { getProducts } from "@/app/services/customer/product.service";
+import ProductCard from "@/app/(customer)/customer/components/products/ProductCard";
+import { getProductsServer } from "@/app/services/customer/product.server";
 
 interface RelatedProductsProps {
   categoryId: number;
   excludeProductId: number;
 }
 
-export default function RelatedProducts({
+export default async function RelatedProducts({
   categoryId,
   excludeProductId,
 }: RelatedProductsProps) {
-  const [related, setRelated] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  let related;
 
-  useEffect(() => {
-    const load = async () => {
-      try {
-        const data = await getProducts();
-        const filtered = data.data
-          .filter(
-            (p: Product) =>
-              p.category.id === categoryId && p.id !== excludeProductId
-          )
-          .slice(0, 4);
-        setRelated(filtered);
-      } catch {
-        // Related products are a nice-to-have — fail silently rather
-        // than blocking the page with an error state.
-        setRelated([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+  try {
+    const { products } = await getProductsServer(1, 5, categoryId);
 
-    load();
-  }, [categoryId, excludeProductId]);
+    related = products
+      .filter((product) => product.id !== excludeProductId)
+      .slice(0, 4);
+  } catch {
+    return null;
+  }
 
-  if (loading || related.length === 0) return null;
+  if (related.length === 0) {
+    return null;
+  }
 
   return (
     <section className="mt-16 border-t border-border pt-10">
@@ -52,9 +37,7 @@ export default function RelatedProducts({
 
       <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
         {related.map((product) => (
-          <ProductCard key={product.id} product={product} isWishlisted={false} onWishlistChange={function (productId: number, isWishlisted: boolean): void {
-            throw new Error("Function not implemented.");
-          } } />
+          <ProductCard key={product.id} product={product} />
         ))}
       </div>
     </section>

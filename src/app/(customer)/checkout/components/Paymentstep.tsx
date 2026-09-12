@@ -28,7 +28,7 @@ export function PaymentStep({
       </h1>
 
       <p className="mt-2 text-sm text-muted-foreground">
-        Choose how you'd like to pay.
+        Choose how you&apos;d like to pay.
       </p>
 
       <div className="mt-8 grid max-w-xl gap-3 sm:grid-cols-2">

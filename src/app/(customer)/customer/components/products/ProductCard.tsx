@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Heart } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import {
   addWishlistItem,
@@ -11,6 +11,7 @@ import {
 } from "@/app/services/customer/wishlist.service";
 
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { useStoreData } from "@/app/components/store/StoreDataProvider";
 
 export interface Product {
   id: number;
@@ -58,18 +59,16 @@ export interface Product {
 
 interface ProductCardProps {
   product: Product;
-  isWishlisted: boolean;
-  onWishlistChange: (
-    productId: number,
-    isWishlisted: boolean
-  ) => void;
 }
 
 export default function ProductCard({
   product,
-  isWishlisted,
-  onWishlistChange,
 }: ProductCardProps) {
+  const { isWishlisted: isProductWishlisted, setWishlisted } =
+    useStoreData();
+
+  const isWishlisted = isProductWishlisted(product.id);
+
   const [wishlistLoading, setWishlistLoading] =
     useState(false);
 
@@ -82,54 +81,67 @@ export default function ProductCard({
   // IMAGES
   // -----------------------------
 
-  const primaryColor = product.colors[0];
+  const { primaryImage, hoverImage } = useMemo(() => {
+    const primaryColor = product.colors[0];
 
-  const images = primaryColor
-    ? [...primaryColor.images].sort(
-        (a, b) => a.sortOrder - b.sortOrder
-      )
-    : [];
+    const images = primaryColor
+      ? [...primaryColor.images].sort(
+          (a, b) => a.sortOrder - b.sortOrder
+        )
+      : [];
 
-  const primaryImage =
-    images.find((image) => image.isPrimary) ?? images[0];
+    const primary =
+      images.find((image) => image.isPrimary) ?? images[0];
 
-  const hoverImage = images.find(
-    (image) => image.id !== primaryImage?.id
-  );
+    return {
+      primaryImage: primary,
+
+      hoverImage: images.find(
+        (image) => image.id !== primary?.id
+      ),
+    };
+  }, [product.colors]);
 
   // -----------------------------
   // PRICE
   // -----------------------------
 
-  const prices = product.colors.flatMap((productColor) =>
-    productColor.variants.map((variant) =>
-      Number(variant.price)
-    )
-  );
+  const { lowestPrice, hasRange } = useMemo(() => {
+    const prices = product.colors.flatMap((productColor) =>
+      productColor.variants.map((variant) =>
+        Number(variant.price)
+      )
+    );
 
-  const lowestPrice =
-    prices.length > 0 ? Math.min(...prices) : null;
+    if (prices.length === 0) {
+      return { lowestPrice: null, hasRange: false };
+    }
 
-  const highestPrice =
-    prices.length > 0 ? Math.max(...prices) : null;
+    const lowest = Math.min(...prices);
+    const highest = Math.max(...prices);
 
-  const hasRange =
-    lowestPrice !== null &&
-    highestPrice !== null &&
-    lowestPrice !== highestPrice;
+    return {
+      lowestPrice: lowest,
+      hasRange: lowest !== highest,
+    };
+  }, [product.colors]);
 
   // -----------------------------
   // STOCK
   // -----------------------------
 
-  const totalStock = product.colors.reduce(
-    (sum, productColor) =>
-      sum +
-      productColor.variants.reduce(
-        (stock, variant) => stock + variant.stock,
+  const totalStock = useMemo(
+    () =>
+      product.colors.reduce(
+        (sum, productColor) =>
+          sum +
+          productColor.variants.reduce(
+            (stock, variant) => stock + variant.stock,
+            0
+          ),
         0
       ),
-    0
+    [product.colors]
   );
 
   const isSoldOut = totalStock === 0;
@@ -143,9 +155,9 @@ export default function ProductCard({
 
   const swatchLimit = 4;
 
-  const visibleColors = product.colors.slice(
-    0,
-    swatchLimit
+  const visibleColors = useMemo(
+    () => product.colors.slice(0, swatchLimit),
+    [product.colors]
   );
 
   const extraColors =
@@ -155,40 +167,48 @@ export default function ProductCard({
   // WISHLIST
   // -----------------------------
 
-  const handleWishlist = async (
-    event: React.MouseEvent<HTMLButtonElement>
-  ) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const handleWishlist = useCallback(
+    async (
+      event: React.MouseEvent<HTMLButtonElement>
+    ) => {
+      event.preventDefault();
+      event.stopPropagation();
 
-    if (wishlistLoading) return;
+      if (wishlistLoading) return;
 
-    try {
-      setWishlistLoading(true);
-      setWishlistError(null);
+      try {
+        setWishlistLoading(true);
+        setWishlistError(null);
 
-      if (isWishlisted) {
-        // Remove
-        await removeWishlistItem(product.id);
+        if (isWishlisted) {
+          // Remove
+          await removeWishlistItem(product.id);
 
-        onWishlistChange(product.id, false);
-      } else {
-        // Add
-        await addWishlistItem(product.id);
+          setWishlisted(product.id, false);
+        } else {
+          // Add
+          await addWishlistItem(product.id);
 
-        onWishlistChange(product.id, true);
+          setWishlisted(product.id, true);
+        }
+      } catch (error) {
+        setWishlistError(
+          getApiErrorMessage(
+            error,
+            "Failed to update wishlist"
+          )
+        );
+      } finally {
+        setWishlistLoading(false);
       }
-    } catch (error) {
-      setWishlistError(
-        getApiErrorMessage(
-          error,
-          "Failed to update wishlist"
-        )
-      );
-    } finally {
-      setWishlistLoading(false);
-    }
-  };
+    },
+    [
+      wishlistLoading,
+      isWishlisted,
+      product.id,
+      setWishlisted,
+    ]
+  );
 
   return (
     <article className="group relative flex flex-col overflow-hidden border border-border bg-card transition-colors duration-200 hover:border-foreground/30">
@@ -272,6 +292,7 @@ export default function ProductCard({
           <Heart
             size={18}
             strokeWidth={1.8}
+            aria-hidden="true"
             className={
               isWishlisted
                 ? "fill-current"
@@ -306,9 +327,22 @@ export default function ProductCard({
 
         {visibleColors.length > 0 && (
           <div className="mt-1 flex items-center gap-1.5">
+            <span className="sr-only">
+              Available in{" "}
+              {visibleColors
+                .map(
+                  (productColor) => productColor.color.name
+                )
+                .join(", ")}
+              {extraColors > 0
+                ? ` and ${extraColors} more`
+                : ""}
+            </span>
+
             {visibleColors.map((productColor) => (
               <span
                 key={productColor.id}
+                aria-hidden="true"
                 title={productColor.color.name}
                 className="h-3.5 w-3.5 border border-border"
                 style={{
@@ -320,7 +354,10 @@ export default function ProductCard({
             ))}
 
             {extraColors > 0 && (
-              <span className="text-xs text-muted-foreground">
+              <span
+                aria-hidden="true"
+                className="text-xs text-muted-foreground"
+              >
                 +{extraColors}
               </span>
             )}
@@ -350,7 +387,7 @@ export default function ProductCard({
         {/* Wishlist Error */}
 
         {wishlistError && (
-          <p className="text-xs text-destructive">
+          <p role="alert" className="text-xs text-destructive">
             {wishlistError}
           </p>
         )}

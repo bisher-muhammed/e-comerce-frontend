@@ -1,6 +1,8 @@
 
 "use client";
 
+import Image from "next/image";
+
 import Link from "next/link";
 
 import {
@@ -404,9 +406,9 @@ export default function OrderDetailsPage({
                                             className="flex flex-col gap-4 p-5 sm:flex-row"
                                         >
                                             {/* Image */}
-                                            <div className="h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
+                                            <div className="relative h-24 w-24 shrink-0 overflow-hidden rounded-lg bg-muted">
                                                 {image ? (
-                                                    <img
+                                                    <Image
                                                         src={
                                                             image.url
                                                         }
@@ -414,7 +416,9 @@ export default function OrderDetailsPage({
                                                             image.altText ??
                                                             item.productName
                                                         }
-                                                        className="h-full w-full object-cover"
+                                                        fill
+                                                        sizes="96px"
+                                                        className="object-cover"
                                                     />
                                                 ) : (
                                                     <div className="flex h-full items-center justify-center text-xs text-muted-foreground">

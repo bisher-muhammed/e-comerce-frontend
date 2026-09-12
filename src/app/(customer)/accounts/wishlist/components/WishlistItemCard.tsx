@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState } from "react";
 import {
   WishlistItem,
@@ -8,6 +9,7 @@ import {
 } from "@/app/services/customer/wishlist.service"
 
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { useStoreData } from "@/app/components/store/StoreDataProvider";
 
 interface WishlistItemCardProps {
   item: WishlistItem;
@@ -18,10 +20,14 @@ export default function WishlistItemCard({
   item,
   onRemove,
 }: WishlistItemCardProps) {
+  const { setWishlisted } = useStoreData();
+
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const product = item.product;
+
+  const productUrl = `/customer/products/${product.slug}`;
 
   // Find the first primary image
   const image =
@@ -58,6 +64,7 @@ export default function WishlistItemCard({
 
       await removeWishlistItem(product.id);
 
+      setWishlisted(product.id, false);
       onRemove(product.id);
     } catch (err) {
       setError(
@@ -71,26 +78,50 @@ export default function WishlistItemCard({
     }
   };
 
+  const media = (
+    <div className="relative aspect-square bg-gray-100">
+      {image ? (
+        <Image
+          src={image.url}
+          alt={image.altText || product.name}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          className="object-cover"
+        />
+      ) : (
+        <div className="flex items-center justify-center h-full text-gray-400">
+          No image
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <article className="border rounded-lg overflow-hidden bg-white">
-      <div className="relative aspect-square bg-gray-100">
-        {image ? (
-          <Image
-            src={image.url}
-            alt={image.altText || product.name}
-            fill
-            className="object-cover"
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full text-gray-400">
-            No image
-          </div>
-        )}
-      </div>
+      {product.isActive ? (
+        <Link
+          href={productUrl}
+          aria-label={`View ${product.name}`}
+          className="block"
+        >
+          {media}
+        </Link>
+      ) : (
+        media
+      )}
 
       <div className="p-4">
         <h2 className="font-semibold text-lg">
-          {product.name}
+          {product.isActive ? (
+            <Link
+              href={productUrl}
+              className="hover:underline"
+            >
+              {product.name}
+            </Link>
+          ) : (
+            product.name
+          )}
         </h2>
 
         {minPrice !== null && (
@@ -116,19 +147,30 @@ export default function WishlistItemCard({
         )}
 
         {error && (
-          <p className="mt-2 text-sm text-red-600">
+          <p role="alert" className="mt-2 text-sm text-red-600">
             {error}
           </p>
         )}
 
-        <button
-          type="button"
-          onClick={handleRemove}
-          disabled={removing}
-          className="mt-4 w-full rounded-md border px-4 py-2 hover:bg-gray-100 disabled:opacity-50"
-        >
-          {removing ? "Removing..." : "Remove"}
-        </button>
+        <div className="mt-4 flex gap-2">
+          {product.isActive && (
+            <Link
+              href={productUrl}
+              className="flex-1 rounded-md border px-4 py-2 text-center hover:bg-gray-100"
+            >
+              View product
+            </Link>
+          )}
+
+          <button
+            type="button"
+            onClick={handleRemove}
+            disabled={removing}
+            className="flex-1 rounded-md border px-4 py-2 hover:bg-gray-100 disabled:opacity-50"
+          >
+            {removing ? "Removing..." : "Remove"}
+          </button>
+        </div>
       </div>
     </article>
   );

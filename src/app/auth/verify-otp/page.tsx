@@ -1,12 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import apiPublic from "@/app/lib/api/apiPublic";
+import { getApiErrorMessage } from "@/app/lib/api/apiError";
 import {
   verifyOtpSchema,
   type VerifyOtpInput,
@@ -16,9 +17,6 @@ const OTP_EXPIRY_SECONDS = 120;
 
 export default function VerifyOtpPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const registrationToken = searchParams.get("token");
 
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -115,35 +113,23 @@ export default function VerifyOtpPage() {
   const onSubmit = async (data: VerifyOtpInput) => {
     setServerError(null);
 
-    if (!registrationToken) {
-      setServerError(
-        "Registration session is missing or invalid."
-      );
-      return;
-    }
-
     try {
       await apiPublic.post(
         "/auth/verify-otp",
         {
-          registrationToken,
           otp: data.otp,
         }
       );
 
       // Registration completed
       router.push("/auth/login");
-    } catch (error: any) {
-      console.error(
-        "OTP verification failed:",
-        error
+    } catch (error) {
+      setServerError(
+        getApiErrorMessage(
+          error,
+          "Unable to verify the code."
+        )
       );
-
-      const message =
-        error.response?.data?.message ||
-        "Unable to verify the code.";
-
-      setServerError(message);
     }
   };
 
@@ -151,13 +137,6 @@ export default function VerifyOtpPage() {
    * Resend OTP
    */
   const handleResend = async () => {
-    if (!registrationToken) {
-      setServerError(
-        "Registration session is missing or invalid."
-      );
-      return;
-    }
-
     /*
      * Do not allow resend before countdown finishes.
      */
@@ -172,17 +151,7 @@ export default function VerifyOtpPage() {
     setIsResending(true);
 
     try {
-      const response = await apiPublic.post(
-        "/auth/resend-otp",
-        {
-          registrationToken,
-        }
-      );
-
-      console.log(
-        "RESEND OTP RESPONSE:",
-        response.data
-      );
+      await apiPublic.post("/auth/resend-otp");
 
       /*
        * Clear old OTP
@@ -202,17 +171,13 @@ export default function VerifyOtpPage() {
       setRemainingSeconds(
         OTP_EXPIRY_SECONDS
       );
-    } catch (error: any) {
-      console.error(
-        "Resend OTP failed:",
-        error
+    } catch (error) {
+      setServerError(
+        getApiErrorMessage(
+          error,
+          "Unable to resend verification code."
+        )
       );
-
-      const message =
-        error.response?.data?.message ||
-        "Unable to resend verification code.";
-
-      setServerError(message);
     } finally {
       setIsResending(false);
     }
@@ -419,7 +384,7 @@ export default function VerifyOtpPage() {
               text-muted-foreground
             "
           >
-            Didn't receive the code?
+            Didn&apos;t receive the code?
           </p>
 
           {remainingSeconds > 0 ? (
