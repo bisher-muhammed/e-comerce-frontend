@@ -36,7 +36,7 @@ export default function SizeForm({
     formState: { errors },
   } = useForm<
     CreateSizeFormInput,
-    any,
+    unknown,
     CreateSizeFormData
   >({
     resolver: zodResolver(createSizeSchema),

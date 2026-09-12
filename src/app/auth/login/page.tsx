@@ -46,8 +46,6 @@ export default function LoginPage() {
       router.replace("/customer");
     }
   } catch (error) {
-    console.error("Login failed:", error);
-
     applyServerErrors(
       error,
       setError,
@@ -265,7 +263,7 @@ export default function LoginPage() {
             min-[1201px]:max-[1400px]:mt-4
           "
         >
-          Don't have an account?{" "}
+          Don&apos;t have an account?{" "}
           <Link
             href="/auth/register"
             className="

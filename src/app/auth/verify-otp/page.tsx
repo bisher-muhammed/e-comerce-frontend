@@ -7,6 +7,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import apiPublic from "@/app/lib/api/apiPublic";
+import { getApiErrorMessage } from "@/app/lib/api/apiError";
 import {
   verifyOtpSchema,
   type VerifyOtpInput,
@@ -122,17 +123,13 @@ export default function VerifyOtpPage() {
 
       // Registration completed
       router.push("/auth/login");
-    } catch (error: any) {
-      console.error(
-        "OTP verification failed:",
-        error
+    } catch (error) {
+      setServerError(
+        getApiErrorMessage(
+          error,
+          "Unable to verify the code."
+        )
       );
-
-      const message =
-        error.response?.data?.message ||
-        "Unable to verify the code.";
-
-      setServerError(message);
     }
   };
 
@@ -174,17 +171,13 @@ export default function VerifyOtpPage() {
       setRemainingSeconds(
         OTP_EXPIRY_SECONDS
       );
-    } catch (error: any) {
-      console.error(
-        "Resend OTP failed:",
-        error
+    } catch (error) {
+      setServerError(
+        getApiErrorMessage(
+          error,
+          "Unable to resend verification code."
+        )
       );
-
-      const message =
-        error.response?.data?.message ||
-        "Unable to resend verification code.";
-
-      setServerError(message);
     } finally {
       setIsResending(false);
     }
@@ -391,7 +384,7 @@ export default function VerifyOtpPage() {
               text-muted-foreground
             "
           >
-            Didn't receive the code?
+            Didn&apos;t receive the code?
           </p>
 
           {remainingSeconds > 0 ? (

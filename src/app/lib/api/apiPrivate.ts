@@ -76,15 +76,10 @@ apiPrivate.interceptors.response.use(
     const redirectToLogin = () => {
       if (originalRequest?.skipAuthRedirect) return;
 
+      if (typeof window === "undefined") return;
+
       window.location.href = "/auth/login";
     };
-
-    // Don't refresh if the failed request itself is the refresh endpoint.
-    if (originalRequest.url?.includes("/auth/refresh-token")) {
-      redirectToLogin();
-
-      return Promise.reject(error);
-    }
 
     // Prevent infinite retry loops.
     if (originalRequest._retry) {

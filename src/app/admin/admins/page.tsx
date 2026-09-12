@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Plus, RefreshCw } from "lucide-react";
 
 import apiPrivate from "@/app/lib/api/apiPrivate";
+import { getApiErrorMessage } from "@/app/lib/api/apiError";
 import AdminTable from "../components/AdminTable"
 import AdminForm from "../components/AdminForm";
 
@@ -44,14 +45,13 @@ export default function AdminsPage() {
       const response = await apiPrivate.get("/admin/admins");
 
       setAdmins(response.data.data);
-    } catch (error: any) {
-      console.error("Failed to fetch admins:", error);
-
-      const message =
-        error.response?.data?.message ||
-        "Unable to load administrators.";
-
-      setError(message);
+    } catch (error) {
+      setError(
+        getApiErrorMessage(
+          error,
+          "Unable to load administrators."
+        )
+      );
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

@@ -2,8 +2,10 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -176,24 +178,24 @@ export default function CheckoutPage() {
     ]
   );
 
-  const [idempotency, setIdempotency] =
-    useState(() => ({
-      signature: orderSignature,
-      key: crypto.randomUUID(),
-    }));
+  const idempotencyRef = useRef<{
+    signature: string;
+    key: string;
+  } | null>(null);
 
-  if (
-    idempotency.signature !==
-    orderSignature
-  ) {
+  const takeIdempotencyKey = useCallback(() => {
+    if (
+      idempotencyRef.current?.signature !==
+      orderSignature
+    ) {
+      idempotencyRef.current = {
+        signature: orderSignature,
+        key: crypto.randomUUID(),
+      };
+    }
 
-    setIdempotency({
-      signature: orderSignature,
-      key: crypto.randomUUID(),
-    });
-  }
-
-  const idempotencyKey = idempotency.key;
+    return idempotencyRef.current.key;
+  }, [orderSignature]);
 
 
 
@@ -331,19 +333,23 @@ export default function CheckoutPage() {
   // TOTALS
   // ============================================================
 
-  const totals = useMemo<CheckoutTotals>(
-    () => ({
+  const totals = useMemo<CheckoutTotals>(() => {
+    const discountAmount = Math.min(
+      Math.max(
+        appliedCoupon?.discountAmount ?? 0,
+        0
+      ),
+      subtotal
+    );
+
+    return {
       subtotal,
 
-      discountAmount:
-        appliedCoupon?.discountAmount ?? 0,
+      discountAmount,
 
-      total:
-        appliedCoupon?.finalSubtotal ??
-        subtotal,
-    }),
-    [subtotal, appliedCoupon]
-  );
+      total: subtotal - discountAmount,
+    };
+  }, [subtotal, appliedCoupon]);
 
   // ============================================================
   // STOCK CHECK
@@ -487,7 +493,8 @@ export default function CheckoutPage() {
           couponCode:
             appliedCoupon?.coupon.code,
 
-          idempotencyKey,
+          idempotencyKey:
+            takeIdempotencyKey(),
         });
 
       const {

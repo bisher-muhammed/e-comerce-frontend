@@ -119,12 +119,8 @@ export const updateCartItem = async (
     `/customer/cart/${cartItemId}`,
     data
   );
-  console.log("UPDATE CART RESPONSE:", response.data);
-
-  
 
   return response.data;
-  
 };
 
 export const removeCartItem = async (

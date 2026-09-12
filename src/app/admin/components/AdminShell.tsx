@@ -52,6 +52,7 @@ export default function AdminShell({
         <AdminNavbar
           onMenuClick={() => setSidebarOpen(true)}
           sidebarOpen={sidebarOpen}
+          user={user}
         />
 
         <main className="min-w-0 flex-1">

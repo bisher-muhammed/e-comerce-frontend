@@ -41,8 +41,6 @@ export default function RegisterPage() {
 
       router.push("/auth/verify-otp");
     } catch (error) {
-      console.error("Registration failed:", error);
-
       applyServerErrors(
         error,
         setError,
