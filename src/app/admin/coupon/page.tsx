@@ -24,6 +24,8 @@ import CouponForm from "./components/CouponForm";
 import CouponDetails from "./components/CouponDetails";
 
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { useToast } from "@/app/components/feedback/ToastProvider";
+import { useConfirm } from "@/app/components/feedback/ConfirmProvider";
 
 export default function CouponsPage() {
   // ============================================================
@@ -80,6 +82,9 @@ export default function CouponsPage() {
   // Used for actions such as activate/deactivate/delete
   const [actionLoading, setActionLoading] =
     useState(false);
+
+  const toast = useToast();
+  const confirm = useConfirm();
 
   // ============================================================
   // FETCH COUPONS
@@ -238,14 +243,27 @@ export default function CouponsPage() {
     const claims =
       coupon._count?.claims ?? 0;
 
-    const message =
-      claims > 0
-        ? `This coupon has ${claims} claim(s) and cannot be deleted.
+    /*
+     * The API rejects deleting a claimed coupon, so there is no
+     * point asking the user to confirm one.
+     */
+    if (claims > 0) {
+      toast.error(
+        `"${coupon.code}" has ${claims} claim(s) and cannot be deleted. Deactivate it instead.`
+      );
 
-The backend will reject the deletion. Deactivate it instead.`
-        : `Delete coupon "${coupon.code}"?`;
+      return;
+    }
 
-    if (!window.confirm(message)) {
+    const confirmed = await confirm({
+      title: `Delete coupon "${coupon.code}"?`,
+      description:
+        "This cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
+
+    if (!confirmed) {
       return;
     }
 
@@ -263,6 +281,10 @@ The backend will reject the deletion. Deactivate it instead.`
       }
 
       await fetchCoupons();
+
+      toast.success(
+        `Coupon "${coupon.code}" deleted.`
+      );
     } catch (error) {
       setError(getApiErrorMessage(error));
     } finally {

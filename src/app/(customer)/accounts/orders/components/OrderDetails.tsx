@@ -1,5 +1,7 @@
 "use client";
 
+import Image from "next/image";
+
 import Link from "next/link";
 
 import { useState } from "react";
@@ -843,10 +845,10 @@ export default function OrderDetails({
 
                                                 {/* Image */}
 
-                                                <div className="h-24 w-20 shrink-0 overflow-hidden rounded-lg bg-gray-100">
+                                                <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded-lg bg-gray-100">
 
                                                     {image ? (
-                                                        <img
+                                                        <Image
                                                             src={
                                                                 image.url
                                                             }
@@ -854,7 +856,9 @@ export default function OrderDetails({
                                                                 image.altText ||
                                                                 item.productName
                                                             }
-                                                            className="h-full w-full object-cover"
+                                                            fill
+                                                            sizes="80px"
+                                                            className="object-cover"
                                                         />
                                                     ) : (
                                                         <div className="flex h-full items-center justify-center">

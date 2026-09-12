@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import SizeForm from "../components/SizeForm";
@@ -8,6 +8,8 @@ import SizeTable, {
   type Size,
 } from "../components/SizeTable";
 import {getApiErrorMessage} from "@/app/lib/api/apiError";
+import { useToast } from "@/app/components/feedback/ToastProvider";
+import { useConfirm } from "@/app/components/feedback/ConfirmProvider";
 
 import {
   createSize,
@@ -29,10 +31,11 @@ export default function SizesPage() {
   const [loading, setLoading] = useState(true);
 
   const [saving, setSaving] = useState(false);
-  const [errorMessage, setErrorMessage] =
-  useState<string | null>(null);
 
-  const loadSizes = async () => {
+  const toast = useToast();
+  const confirm = useConfirm();
+
+  const loadSizes = useCallback(async () => {
   try {
     setLoading(true);
 
@@ -40,17 +43,20 @@ export default function SizesPage() {
 
     setSizes(response);
   } catch (error) {
-    const message = getApiErrorMessage(error);
-
-    alert(message);
+    toast.error(
+      getApiErrorMessage(
+        error,
+        "Failed to load sizes"
+      )
+    );
   } finally {
     setLoading(false);
   }
-};
+}, [toast]);
 
 useEffect(() => {
   loadSizes();
-}, []);
+}, [loadSizes]);
 
 
   const handleCreate = async (
@@ -58,20 +64,21 @@ useEffect(() => {
 ) => {
   try {
     setSaving(true);
-    setErrorMessage(null);
 
     await createSize(data);
 
     setShowForm(false);
 
     await loadSizes();
-  } catch (error) {
-    const message = getApiErrorMessage(
-      error,
-      "Failed to create size"
-    );
 
-    setErrorMessage(message);
+    toast.success("Size created.");
+  } catch (error) {
+    toast.error(
+      getApiErrorMessage(
+        error,
+        "Failed to create size"
+      )
+    );
   } finally {
     setSaving(false);
   }
@@ -95,19 +102,28 @@ useEffect(() => {
     setShowForm(false);
 
     await loadSizes();
-  } catch (error) {
-    const message = getApiErrorMessage(error);
 
-    alert(message);
+    toast.success("Size updated.");
+  } catch (error) {
+    toast.error(
+      getApiErrorMessage(
+        error,
+        "Failed to update size"
+      )
+    );
   } finally {
     setSaving(false);
   }
 };
 
 const handleDelete = async (id: number) => {
-  const confirmed = window.confirm(
-    "Are you sure you want to delete this size?"
-  );
+  const confirmed = await confirm({
+    title: "Delete this size?",
+    description:
+      "This cannot be undone.",
+    confirmLabel: "Delete",
+    destructive: true,
+  });
 
   if (!confirmed) return;
 
@@ -115,10 +131,15 @@ const handleDelete = async (id: number) => {
     await deleteSize(id);
 
     await loadSizes();
-  } catch (error) {
-    const message = getApiErrorMessage(error);
 
-    alert(message);
+    toast.success("Size deleted.");
+  } catch (error) {
+    toast.error(
+      getApiErrorMessage(
+        error,
+        "Failed to delete size"
+      )
+    );
   }
 };
 

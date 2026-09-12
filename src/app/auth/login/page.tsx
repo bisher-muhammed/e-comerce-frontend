@@ -6,11 +6,17 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import apiPublic from "@/app/lib/api/apiPublic";
+import { applyServerErrors } from "@/app/lib/api/formErrors";
 import { isAdminRole } from "@/app/lib/auth/roles";
 import {
   loginSchema,
   type LoginInput,
 } from "@/app/validations/customer/auth.validation";
+
+const FORM_FIELDS = [
+  "email",
+  "password",
+] as const;
 
 export default function LoginPage() {
   const router = useRouter();
@@ -18,6 +24,7 @@ export default function LoginPage() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
@@ -38,14 +45,15 @@ export default function LoginPage() {
     } else {
       router.replace("/customer");
     }
-  } catch (error: any) {
+  } catch (error) {
     console.error("Login failed:", error);
 
-    const message =
-      error.response?.data?.message ||
-      "Unable to log in. Please try again.";
-
-    alert(message);
+    applyServerErrors(
+      error,
+      setError,
+      FORM_FIELDS,
+      "Unable to log in. Please try again."
+    );
   }
 };
 
@@ -204,6 +212,21 @@ export default function LoginPage() {
               </p>
             )}
           </div>
+
+          {/* Server Error */}
+
+          {errors.root && (
+            <p
+              role="alert"
+              className="
+                text-center
+                text-sm
+                text-destructive
+              "
+            >
+              {errors.root.message}
+            </p>
+          )}
 
           {/* Submit */}
 

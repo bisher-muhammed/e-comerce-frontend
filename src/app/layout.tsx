@@ -8,6 +8,9 @@ import {
   SITE_URL,
 } from "@/app/lib/seo/site";
 
+import { ToastProvider } from "@/app/components/feedback/ToastProvider";
+import { ConfirmProvider } from "@/app/components/feedback/ConfirmProvider";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -55,7 +58,11 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col m-0 p-0">
-        {children}
+        <ToastProvider>
+          <ConfirmProvider>
+            {children}
+          </ConfirmProvider>
+        </ToastProvider>
       </body>
     </html>
   );

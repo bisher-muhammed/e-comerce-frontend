@@ -1,6 +1,8 @@
 
 "use client";
 
+import Image from "next/image";
+
 import { useState } from "react";
 
 import {
@@ -174,13 +176,15 @@ export function OrderSummaryCard({
             >
               <div className="relative h-14 w-12 shrink-0 overflow-hidden rounded-md bg-secondary">
                 {image && (
-                  <img
+                  <Image
                     src={image.url}
                     alt={
                       image.altText ??
                       product.name
                     }
-                    className="h-full w-full object-cover"
+                    fill
+                    sizes="48px"
+                    className="object-cover"
                   />
                 )}
 

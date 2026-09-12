@@ -4,9 +4,11 @@ import { useState } from "react";
 import apiPrivate, {
   optionalAuthRequest,
 } from "@/app/lib/api/apiPrivate";
+import { useToast } from "@/app/components/feedback/ToastProvider";
 
 export function useLogout() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const toast = useToast();
 
   const logout = async () => {
     if (isLoggingOut) return;
@@ -25,7 +27,9 @@ export function useLogout() {
 
       setIsLoggingOut(false);
 
-      alert("Unable to log out. Please try again.");
+      toast.error(
+        "Unable to log out. Please try again."
+      );
     }
   };
 

@@ -8,30 +8,6 @@
 ## 1. CRITICAL
 ## 2. HIGH
 
-### H5. Six dead links in global navigation
-
-| Dead link | Where | Should be |
-|---|---|---|
-| `/shop` (7×) | `Navbar`, `Footer`, `cart/page`, `checkout/page` ×3, `accounts/layout` | `/customer` |
-| `/products`, `/products?category=new` | `(customer)/page.tsx` ×5 | `/customer` |
-| `/collections`, `/account` | `Navbar`, `Footer` | — |
-| `/about` | `Footer` | — |
-| `/accounts/profile` | `accounts/layout.tsx:15` | — |
-| `/auth/forgot-password` | `login/page.tsx:184` | — |
-
-These sit in the **global navbar and footer** (every page) and in the checkout empty-cart and confirmation CTAs. Every one 404s — and with no `not-found.tsx`, users get the bare Next.js default. `(customer)/page.tsx:192` also links `/products/${product.id}` against hardcoded demo data.
-
-Admin has two more: `/admin/customers` (plural — the real route is singular) and `/admin/settings`.
-
-### H6. `next/image` bypassed on the money path
-
-Raw `<img>` in five places; two matter:
-
-- [`OrderSummaryCard.tsx:183`](src/app/(customer)/checkout/components/OrderSummaryCard.tsx#L183) — checkout summary
-- [`OrderDetails.tsx:849`](src/app/(customer)/accounts/orders/components/OrderDetails.tsx#L849) — order detail
-
-Both render remote Cloudinary URLs with **no `width`/`height`** — no optimization, no lazy loading, and **layout shift on the checkout page**, the worst possible place for CLS. `next.config.ts` already whitelists `res.cloudinary.com`, so this is a drop-in fix. (`ProductForm.tsx:647` is legitimately excluded — blob preview, correctly `eslint-disable`d.)
-
 ### H7. Auth errors use `alert()`; there is no toast system
 
 [`login/page.tsx:52`](src/app/auth/login/page.tsx#L52) and `register/page.tsx:43` both do `alert(message)`, plus 13 more `alert()`/`window.confirm()` across admin and `address/page.tsx`.

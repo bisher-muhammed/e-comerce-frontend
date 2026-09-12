@@ -13,6 +13,8 @@ import {
   type ProductPagination,
 } from "@/app/services/admin/product.service";
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { useToast } from "@/app/components/feedback/ToastProvider";
+import { useConfirm } from "@/app/components/feedback/ConfirmProvider";
 
 const PRODUCTS_PER_PAGE = 20;
 
@@ -29,6 +31,9 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const loadProducts = useCallback(async () => {
     try {
@@ -63,9 +68,13 @@ export default function ProductsPage() {
   }, [loadProducts]);
 
   const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this product?"
-    );
+    const confirmed = await confirm({
+      title: "Delete this product?",
+      description:
+        "The product and its variants will be removed. This cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
 
     if (!confirmed) return;
 
@@ -74,6 +83,7 @@ export default function ProductsPage() {
       setError(null);
       await deleteProduct(id);
       await loadProducts();
+      toast.success("Product deleted.");
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to delete product."));
     } finally {

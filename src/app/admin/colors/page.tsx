@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import ColorForm from "../components/ColorForm";
@@ -9,6 +9,8 @@ import ColorTable, {
 } from "../components/ColorTable";
 
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { useToast } from "@/app/components/feedback/ToastProvider";
+import { useConfirm } from "@/app/components/feedback/ConfirmProvider";
 
 import {
   createColor,
@@ -31,7 +33,10 @@ export default function ColorsPage() {
 
   const [saving, setSaving] = useState(false);
 
-  const loadColors = async () => {
+  const toast = useToast();
+  const confirm = useConfirm();
+
+  const loadColors = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -39,22 +44,25 @@ export default function ColorsPage() {
 
       setColors(response);
     } catch (error) {
-      const message = getApiErrorMessage(error);
+      const message = getApiErrorMessage(
+        error,
+        "Failed to load colors"
+      );
 
       console.error(
         "Failed to load colors:",
         message
       );
 
-      alert(message);
+      toast.error(message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
 
   useEffect(() => {
     loadColors();
-  }, []);
+  }, [loadColors]);
 
   const handleCreate = async (
     data: CreateColorFormData
@@ -68,15 +76,20 @@ export default function ColorsPage() {
       setEditingColor(null);
 
       await loadColors();
+
+      toast.success("Color created.");
     } catch (error) {
-      const message = getApiErrorMessage(error);
+      const message = getApiErrorMessage(
+        error,
+        "Failed to create color"
+      );
 
       console.error(
         "Failed to create color:",
         message
       );
 
-      alert(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
@@ -99,24 +112,33 @@ export default function ColorsPage() {
       setShowForm(false);
 
       await loadColors();
+
+      toast.success("Color updated.");
     } catch (error) {
-      const message = getApiErrorMessage(error);
+      const message = getApiErrorMessage(
+        error,
+        "Failed to update color"
+      );
 
       console.error(
         "Failed to update color:",
         message
       );
 
-      alert(message);
+      toast.error(message);
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this color?"
-    );
+    const confirmed = await confirm({
+      title: "Delete this color?",
+      description:
+        "This cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
 
     if (!confirmed) return;
 
@@ -124,15 +146,20 @@ export default function ColorsPage() {
       await deleteColor(id);
 
       await loadColors();
+
+      toast.success("Color deleted.");
     } catch (error) {
-      const message = getApiErrorMessage(error);
+      const message = getApiErrorMessage(
+        error,
+        "Failed to delete color"
+      );
 
       console.error(
         "Failed to delete color:",
         message
       );
 
-      alert(message);
+      toast.error(message);
     }
   };
 
