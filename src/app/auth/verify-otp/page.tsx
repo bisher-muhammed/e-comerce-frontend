@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
@@ -14,11 +14,8 @@ import {
 
 const OTP_EXPIRY_SECONDS = 120;
 
-function VerifyOtpForm() {
+export default function VerifyOtpPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-
-  const registrationToken = searchParams.get("token");
 
   const [serverError, setServerError] = useState<string | null>(null);
 
@@ -115,18 +112,10 @@ function VerifyOtpForm() {
   const onSubmit = async (data: VerifyOtpInput) => {
     setServerError(null);
 
-    if (!registrationToken) {
-      setServerError(
-        "Registration session is missing or invalid."
-      );
-      return;
-    }
-
     try {
       await apiPublic.post(
         "/auth/verify-otp",
         {
-          registrationToken,
           otp: data.otp,
         }
       );
@@ -151,13 +140,6 @@ function VerifyOtpForm() {
    * Resend OTP
    */
   const handleResend = async () => {
-    if (!registrationToken) {
-      setServerError(
-        "Registration session is missing or invalid."
-      );
-      return;
-    }
-
     /*
      * Do not allow resend before countdown finishes.
      */
@@ -172,17 +154,7 @@ function VerifyOtpForm() {
     setIsResending(true);
 
     try {
-      const response = await apiPublic.post(
-        "/auth/resend-otp",
-        {
-          registrationToken,
-        }
-      );
-
-      console.log(
-        "RESEND OTP RESPONSE:",
-        response.data
-      );
+      await apiPublic.post("/auth/resend-otp");
 
       /*
        * Clear old OTP
@@ -491,32 +463,5 @@ function VerifyOtpForm() {
         </p>
       </div>
     </main>
-  );
-}
-
-/*
- * `useSearchParams` opts the route out of static prerendering unless the
- * reader sits inside a Suspense boundary, so the page shell stays static
- * and only the form waits on the client for the `token` query param.
- */
-export default function VerifyOtpPage() {
-  return (
-    <Suspense
-      fallback={
-        <main
-          className="
-            min-h-screen
-            bg-background
-            px-4
-            py-8
-            sm:px-6
-            sm:py-10
-            lg:py-12
-          "
-        />
-      }
-    >
-      <VerifyOtpForm />
-    </Suspense>
   );
 }

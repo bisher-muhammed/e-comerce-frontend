@@ -8,28 +8,6 @@
 ## 1. CRITICAL
 ## 2. HIGH
 
-### H7. Auth errors use `alert()`; there is no toast system
-
-[`login/page.tsx:52`](src/app/auth/login/page.tsx#L52) and `register/page.tsx:43` both do `alert(message)`, plus 13 more `alert()`/`window.confirm()` across admin and `address/page.tsx`.
-
-Native dialogs are unstyled, block the main thread, can't be themed, and on mobile look like a browser malfunction. There is **no notification system in the codebase at all** — successful actions (address saved, coupon applied, item removed) give no confirmation anywhere.
-
-**Fix:** inline field-level errors (the pattern already used correctly in `verify-otp/page.tsx:366-376`) plus a small toast provider.
-
-### H8. Registration token travels in the URL, unencoded
-
-[`register/page.tsx:34`](src/app/auth/register/page.tsx#L34):
-
-```ts
-router.push(`/auth/verify-otp?token=${registrationToken}`);
-```
-
-Two problems: the token lands in browser history, the `Referer` header on any outbound link, and any intermediary access log — a pre-verification account-takeover primitive. And with **no `encodeURIComponent`**, a token containing `&`, `#`, or `+` silently truncates, failing verification with a confusing "Registration session is missing or invalid".
-
-**Fix:** at minimum `encodeURIComponent`; properly, have the backend set a short-lived httpOnly registration cookie and keep the token out of the URL.
-
----
-
 ## 3. MEDIUM
 
 ### M1. 61% client components — SSR and streaming are effectively off

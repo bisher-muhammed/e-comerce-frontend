@@ -36,13 +36,10 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterInput) => {
     try {
       const { confirmPassword, ...registrationData } = data;
-      const response = await apiPublic.post(
-        "/auth/register",
-        registrationData
-      );
-      const { registrationToken } = response.data.data;
 
-      router.push(`/auth/verify-otp?token=${registrationToken}`);
+      await apiPublic.post("/auth/register", registrationData);
+
+      router.push("/auth/verify-otp");
     } catch (error) {
       console.error("Registration failed:", error);
 
