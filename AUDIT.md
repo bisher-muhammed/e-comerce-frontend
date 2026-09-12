@@ -7,7 +7,6 @@
 
 ## 1. CRITICAL
 ## 2. HIGH
-
 ## 3. MEDIUM
 
 ### M1. 61% client components — SSR and streaming are effectively off

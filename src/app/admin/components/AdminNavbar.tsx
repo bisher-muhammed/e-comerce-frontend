@@ -4,10 +4,12 @@ import { Bell, Menu } from "lucide-react";
 
 interface AdminNavbarProps {
   onMenuClick: () => void;
+  sidebarOpen?: boolean;
 }
 
 export default function AdminNavbar({
   onMenuClick,
+  sidebarOpen = false,
 }: AdminNavbarProps) {
   return (
     <header
@@ -32,6 +34,8 @@ export default function AdminNavbar({
           type="button"
           onClick={onMenuClick}
           aria-label="Open sidebar"
+          aria-controls="admin-sidebar"
+          aria-expanded={sidebarOpen}
           className="
             flex
             h-9
@@ -45,7 +49,7 @@ export default function AdminNavbar({
             xl:hidden
           "
         >
-          <Menu className="h-5 w-5" />
+          <Menu className="h-5 w-5" aria-hidden="true" />
         </button>
 
         <div className="min-w-0">

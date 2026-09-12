@@ -61,6 +61,8 @@ import type {
   StepId,
 } from "./components/types";
 
+import { useStoreData } from "@/app/components/store/StoreDataProvider";
+
 const calculateSubtotal = (cart: Cart): number =>
   cart.items.reduce(
     (total, item) =>
@@ -73,7 +75,7 @@ const calculateSubtotal = (cart: Cart): number =>
 export default function CheckoutPage() {
   const router = useRouter();
 
-
+  const { refreshCart } = useStoreData();
 
   const [cart, setCart] =
     useState<Cart | null>(null);
@@ -507,6 +509,8 @@ export default function CheckoutPage() {
           id: order.id,
         });
 
+        await refreshCart();
+
         return;
       }
 
@@ -560,6 +564,8 @@ export default function CheckoutPage() {
               setConfirmedOrder({
                 id: order.id,
               });
+
+              await refreshCart();
             } catch (err) {
               setPlacing(false);
 

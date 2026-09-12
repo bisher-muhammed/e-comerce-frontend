@@ -8,6 +8,7 @@ import {
 } from "@/app/services/customer/wishlist.service"
 
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { useStoreData } from "@/app/components/store/StoreDataProvider";
 
 interface WishlistItemCardProps {
   item: WishlistItem;
@@ -18,6 +19,8 @@ export default function WishlistItemCard({
   item,
   onRemove,
 }: WishlistItemCardProps) {
+  const { setWishlisted } = useStoreData();
+
   const [removing, setRemoving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +61,7 @@ export default function WishlistItemCard({
 
       await removeWishlistItem(product.id);
 
+      setWishlisted(product.id, false);
       onRemove(product.id);
     } catch (err) {
       setError(

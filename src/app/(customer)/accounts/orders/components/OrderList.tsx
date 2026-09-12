@@ -72,6 +72,7 @@ export default function OrderList({ initialStatus }: OrderListProps) {
     const [pagination, setPagination] = useState({ page: 1, limit: 10, total: 0, totalPages: 0 });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+    const [reloadToken, setReloadToken] = useState(0);
 
     // Debounce the free-text search so we don't fire a request per keystroke.
     useEffect(() => {
@@ -117,14 +118,19 @@ export default function OrderList({ initialStatus }: OrderListProps) {
         }
 
         loadOrders();
-    }, [page, status, search, dateField, startDate, endDate]);
+    }, [page, status, search, dateField, startDate, endDate, reloadToken]);
 
     return (
         <div className="space-y-4">
             {/* Search */}
             <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <label htmlFor="order-search" className="sr-only">
+                    Search orders
+                </label>
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" aria-hidden="true" />
                 <input
+                    id="order-search"
+                    type="search"
                     value={searchInput}
                     onChange={(e) => setSearchInput(e.target.value)}
                     placeholder="Search by order ID or product..."
@@ -153,7 +159,11 @@ export default function OrderList({ initialStatus }: OrderListProps) {
 
             {/* Date filter */}
             <div className="flex flex-wrap items-center gap-2 text-sm">
+                <label htmlFor="order-date-field" className="sr-only">
+                    Filter by date field
+                </label>
                 <select
+                    id="order-date-field"
                     value={dateField}
                     onChange={(e) => setDateField(e.target.value as "createdAt" | "updatedAt")}
                     className="rounded-lg border px-3 py-2"
@@ -162,7 +172,11 @@ export default function OrderList({ initialStatus }: OrderListProps) {
                     <option value="updatedAt">Last updated</option>
                 </select>
 
+                <label htmlFor="order-start-date" className="sr-only">
+                    From date
+                </label>
                 <input
+                    id="order-start-date"
                     type="date"
                     value={toDateInputValue(startDate)}
                     onChange={(e) => {
@@ -172,9 +186,13 @@ export default function OrderList({ initialStatus }: OrderListProps) {
                     className="rounded-lg border px-3 py-2"
                 />
 
-                <span className="text-gray-400">to</span>
+                <span className="text-gray-400" aria-hidden="true">to</span>
 
+                <label htmlFor="order-end-date" className="sr-only">
+                    To date
+                </label>
                 <input
+                    id="order-end-date"
                     type="date"
                     value={toDateInputValue(endDate)}
                     onChange={(e) => {
@@ -186,6 +204,7 @@ export default function OrderList({ initialStatus }: OrderListProps) {
 
                 {(startDate || endDate) && (
                     <button
+                        type="button"
                         onClick={() => {
                             setStartDate("");
                             setEndDate("");
@@ -208,7 +227,11 @@ export default function OrderList({ initialStatus }: OrderListProps) {
             {!loading && error && (
                 <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
                     <p className="text-sm text-red-600">{error}</p>
-                    <button onClick={() => setPage(page)} className="mt-3 text-sm font-medium text-red-700 underline">
+                    <button
+                        type="button"
+                        onClick={() => setReloadToken((token) => token + 1)}
+                        className="mt-3 text-sm font-medium text-red-700 underline"
+                    >
                         Try again
                     </button>
                 </div>

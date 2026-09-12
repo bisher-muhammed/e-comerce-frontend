@@ -1,67 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import { Heart, ShoppingBag, MapPin, LogOut, } from "lucide-react";
 
-import { getCart } from "@/app/services/customer/cart.service";
-import { getWishlist } from "@/app/services/customer/wishlist.service";
-import { useCurrentUser } from "@/app/hooks/useCurrentUser";
 import { useLogout } from "@/app/hooks/useLogout";
-import { optionalAuthRequest } from "@/app/lib/api/apiPrivate";
+import { useStoreData } from "@/app/components/store/StoreDataProvider";
 
 export default function Navbar() {
-  const { user } = useCurrentUser();
+  const { user, cartCount, wishlistCount } = useStoreData();
   const { logout, isLoggingOut } = useLogout();
-
-  const [cartCount, setCartCount] = useState(0);
-  const [wishlistCount, setWishlistCount] = useState(0);
-
-  useEffect(() => {
-    if (!user) {
-      setCartCount(0);
-      setWishlistCount(0);
-      return;
-    }
-
-    let cancelled = false;
-
-    const fetchCounts = async () => {
-      try {
-        /*
-         * Badge counts are decorative — a 401 here should blank the
-         * badges, not throw the visitor out of the page they are on.
-         */
-        const [cartResponse, wishlistResponse] =
-          await Promise.all([
-            getCart(optionalAuthRequest),
-            getWishlist(optionalAuthRequest),
-          ]);
-
-        if (cancelled) return;
-
-        const cartItemCount =
-          cartResponse.data.items.reduce(
-            (sum, item) => sum + item.quantity,
-            0
-          );
-
-        const wishlistItemCount =
-          wishlistResponse.data?.items.length ?? 0;
-
-        setCartCount(cartItemCount);
-        setWishlistCount(wishlistItemCount);
-      } catch {
-        // Navbar should not break if count requests fail.
-      }
-    };
-
-    fetchCounts();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
 
   return (
     <header className="border-b border-gray-100">
@@ -133,12 +80,21 @@ export default function Navbar() {
           <Link
             href="/accounts/wishlist"
             className="relative"
-            aria-label="Wishlist"
+            aria-label={
+              wishlistCount > 0
+                ? `Wishlist, ${wishlistCount} ${
+                    wishlistCount === 1 ? "item" : "items"
+                  }`
+                : "Wishlist"
+            }
           >
-            <Heart size={20} />
+            <Heart size={20} aria-hidden="true" />
 
             {wishlistCount > 0 && (
-              <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[10px] text-white">
+              <span
+                aria-hidden="true"
+                className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[10px] text-white"
+              >
                 {wishlistCount}
               </span>
             )}
@@ -148,12 +104,21 @@ export default function Navbar() {
           <Link
             href="/cart"
             className="relative"
-            aria-label="Cart"
+            aria-label={
+              cartCount > 0
+                ? `Cart, ${cartCount} ${
+                    cartCount === 1 ? "item" : "items"
+                  }`
+                : "Cart"
+            }
           >
-            <ShoppingBag size={20} />
+            <ShoppingBag size={20} aria-hidden="true" />
 
             {cartCount > 0 && (
-              <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[10px] text-white">
+              <span
+                aria-hidden="true"
+                className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[10px] text-white"
+              >
                 {cartCount}
               </span>
             )}

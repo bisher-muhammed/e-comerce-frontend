@@ -18,22 +18,22 @@ const categories = [
   {
     name: "New Arrivals",
     description: "Freshly dropped cuts, seasonal fabrics, and trending patterns.",
-    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.19.jpeg",
+    image: "/photos/category-new-arrivals.jpeg",
   },
   {
     name: "Casual Wear",
     description: "Relaxed button-downs, breathable linens, and everyday flannels.",
-    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.28.jpeg",
+    image: "/photos/category-casual-wear.jpeg",
   },
   {
     name: "Formal & Office",
     description: "Crisp dress shirts, sharp collars, and wrinkle-resistant fabrics.",
-    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.47.jpeg",
+    image: "/photos/category-formal-office.jpeg",
   },
   {
     name: "Oversized & Streetwear",
     description: "Boxy fits, heavyweight cotton, and bold graphic statement pieces.",
-    image: "/photos/WhatsApp Image 2026-08-19 at 19.40.04.jpeg",
+    image: "/photos/category-streetwear.jpeg",
   },
 ];
 
@@ -45,7 +45,7 @@ const featuredProducts = [
     name: "Classic Denim Overshirt",
     category: "Casual Wear",
     price: "$89",
-    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.25.jpeg",
+    image: "/photos/featured-denim-overshirt.jpeg",
   },
   {
     id: 2,
@@ -59,7 +59,7 @@ const featuredProducts = [
     name: "Heavyweight Boxy Tee",
     category: "Oversized & Streetwear",
     price: "$45",
-    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.16.jpeg",
+    image: "/photos/featured-boxy-tee.jpeg",
   },
   {
     id: 4,

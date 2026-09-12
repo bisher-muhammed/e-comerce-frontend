@@ -369,11 +369,12 @@ export default function CouponForm({
 
           {/* NAME */}
           <div>
-            <label className={fieldLabel}>
+            <label htmlFor="coupon-name" className={fieldLabel}>
               Coupon name
             </label>
 
             <input
+              id="coupon-name"
               type="text"
               value={form.name}
               onChange={(event) =>
@@ -390,11 +391,12 @@ export default function CouponForm({
 
           {/* CODE */}
           <div>
-            <label className={fieldLabel}>
+            <label htmlFor="coupon-code" className={fieldLabel}>
               Coupon code
             </label>
 
             <input
+              id="coupon-code"
               type="text"
               value={form.code}
               onChange={(event) =>
@@ -418,11 +420,12 @@ export default function CouponForm({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
             <div>
-              <label className={fieldLabel}>
+              <label htmlFor="coupon-discount-type" className={fieldLabel}>
                 Discount type
               </label>
 
               <select
+                id="coupon-discount-type"
                 value={
                   form.discountType
                 }
@@ -447,11 +450,12 @@ export default function CouponForm({
             </div>
 
             <div>
-              <label className={fieldLabel}>
+              <label htmlFor="coupon-discount-value" className={fieldLabel}>
                 Discount value
               </label>
 
               <input
+                id="coupon-discount-value"
                 type="number"
                 min="0"
                 step="0.01"
@@ -480,11 +484,12 @@ export default function CouponForm({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
             <div>
-              <label className={fieldLabel}>
+              <label htmlFor="coupon-minimum-order" className={fieldLabel}>
                 Minimum order amount
               </label>
 
               <input
+                id="coupon-minimum-order"
                 type="number"
                 min="0"
                 step="0.01"
@@ -504,11 +509,12 @@ export default function CouponForm({
             </div>
 
             <div>
-              <label className={fieldLabel}>
+              <label htmlFor="coupon-maximum-discount" className={fieldLabel}>
                 Maximum discount
               </label>
 
               <input
+                id="coupon-maximum-discount"
                 type="number"
                 min="0"
                 step="0.01"
@@ -549,11 +555,12 @@ export default function CouponForm({
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
 
             <div>
-              <label className={fieldLabel}>
+              <label htmlFor="coupon-starts-on" className={fieldLabel}>
                 Starts on
               </label>
 
               <input
+                id="coupon-starts-on"
                 type="date"
                 value={
                   form.startsOn
@@ -570,11 +577,12 @@ export default function CouponForm({
             </div>
 
             <div>
-              <label className={fieldLabel}>
+              <label htmlFor="coupon-expires-on" className={fieldLabel}>
                 Expires on
               </label>
 
               <input
+                id="coupon-expires-on"
                 type="date"
                 value={
                   form.expiresOn

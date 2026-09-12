@@ -51,6 +51,7 @@ export default function AdminShell({
       <div className="flex min-h-screen w-full min-w-0 flex-col lg:ml-64 lg:w-[calc(100%-16rem)]">
         <AdminNavbar
           onMenuClick={() => setSidebarOpen(true)}
+          sidebarOpen={sidebarOpen}
         />
 
         <main className="min-w-0 flex-1">

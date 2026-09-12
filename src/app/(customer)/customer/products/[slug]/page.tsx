@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 
 import type { Product } from "@/app/(customer)/customer/components/products/ProductCard";
@@ -83,22 +84,41 @@ export async function generateMetadata({
   };
 }
 
+function RelatedProductsSkeleton() {
+  return (
+    <section
+      className="mt-16 border-t border-border pt-10"
+      aria-hidden="true"
+    >
+      <div className="h-3 w-32 animate-pulse bg-secondary" />
+      <div className="mt-3 h-7 w-56 animate-pulse bg-secondary" />
+
+      <div className="mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 md:grid-cols-4">
+        {[1, 2, 3, 4].map((item) => (
+          <div
+            key={item}
+            className="flex flex-col border border-border bg-card"
+          >
+            <div className="aspect-3/4 animate-pulse bg-secondary" />
+
+            <div className="flex flex-col gap-2 p-4">
+              <div className="h-3 w-1/3 animate-pulse bg-secondary" />
+              <div className="h-4 w-3/4 animate-pulse bg-secondary" />
+              <div className="mt-2 h-4 w-1/4 animate-pulse bg-secondary" />
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 export default async function ProductDetailsPage({
   params,
 }: ProductPageProps) {
   const { slug } = await params;
 
-  let product: Product | null;
-
-  try {
-    product = await getProductBySlugServer(slug);
-  } catch {
-    return (
-      <main className="mx-auto max-w-7xl px-6 py-10">
-        <p className="text-sm text-destructive">Unable to load product</p>
-      </main>
-    );
-  }
+  const product: Product | null = await getProductBySlugServer(slug);
 
   if (!product) {
     notFound();
@@ -130,10 +150,12 @@ export default async function ProductDetailsPage({
         </h1>
       </ProductDetail>
 
-      <RelatedProducts
-        categoryId={product.category.id}
-        excludeProductId={product.id}
-      />
+      <Suspense fallback={<RelatedProductsSkeleton />}>
+        <RelatedProducts
+          categoryId={product.category.id}
+          excludeProductId={product.id}
+        />
+      </Suspense>
     </main>
   );
 }

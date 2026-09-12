@@ -74,12 +74,21 @@ export function ContactStep({
       <div className="mt-8 max-w-md space-y-6">
         {/* EMAIL */}
         <div>
-          <label className="mb-2 block text-sm font-medium">
+          <label
+            htmlFor="checkout-email"
+            className="mb-2 block text-sm font-medium"
+          >
             Email address
           </label>
 
           <input
+            id="checkout-email"
             type="email"
+            autoComplete="email"
+            aria-invalid={Boolean(errors.email)}
+            aria-describedby={
+              errors.email ? "checkout-email-error" : undefined
+            }
             value={contact.email}
             onChange={(e) => {
               const value = e.target.value;
@@ -107,7 +116,11 @@ export function ContactStep({
           />
 
           {errors.email && (
-            <p className="mt-1 text-sm text-red-500">
+            <p
+              id="checkout-email-error"
+              role="alert"
+              className="mt-1 text-sm text-red-500"
+            >
               {errors.email}
             </p>
           )}
@@ -115,12 +128,21 @@ export function ContactStep({
 
         {/* PHONE */}
         <div>
-          <label className="mb-2 block text-sm font-medium">
+          <label
+            htmlFor="checkout-phone"
+            className="mb-2 block text-sm font-medium"
+          >
             Phone number
           </label>
 
           <input
+            id="checkout-phone"
             type="tel"
+            autoComplete="tel"
+            aria-invalid={Boolean(errors.phone)}
+            aria-describedby={
+              errors.phone ? "checkout-phone-error" : undefined
+            }
             value={contact.phone}
             onChange={(e) => {
               const value = e.target.value;
@@ -148,7 +170,11 @@ export function ContactStep({
           />
 
           {errors.phone && (
-            <p className="mt-1 text-sm text-red-500">
+            <p
+              id="checkout-phone-error"
+              role="alert"
+              className="mt-1 text-sm text-red-500"
+            >
               {errors.phone}
             </p>
           )}

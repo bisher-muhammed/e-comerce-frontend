@@ -11,6 +11,7 @@ import {
 } from "@/app/services/customer/wishlist.service";
 
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { useStoreData } from "@/app/components/store/StoreDataProvider";
 
 export interface Product {
   id: number;
@@ -58,18 +59,16 @@ export interface Product {
 
 interface ProductCardProps {
   product: Product;
-  isWishlisted: boolean;
-  onWishlistChange: (
-    productId: number,
-    isWishlisted: boolean
-  ) => void;
 }
 
 export default function ProductCard({
   product,
-  isWishlisted,
-  onWishlistChange,
 }: ProductCardProps) {
+  const { isWishlisted: isProductWishlisted, setWishlisted } =
+    useStoreData();
+
+  const isWishlisted = isProductWishlisted(product.id);
+
   const [wishlistLoading, setWishlistLoading] =
     useState(false);
 
@@ -171,12 +170,12 @@ export default function ProductCard({
         // Remove
         await removeWishlistItem(product.id);
 
-        onWishlistChange(product.id, false);
+        setWishlisted(product.id, false);
       } else {
         // Add
         await addWishlistItem(product.id);
 
-        onWishlistChange(product.id, true);
+        setWishlisted(product.id, true);
       }
     } catch (error) {
       setWishlistError(
@@ -272,6 +271,7 @@ export default function ProductCard({
           <Heart
             size={18}
             strokeWidth={1.8}
+            aria-hidden="true"
             className={
               isWishlisted
                 ? "fill-current"
@@ -306,9 +306,22 @@ export default function ProductCard({
 
         {visibleColors.length > 0 && (
           <div className="mt-1 flex items-center gap-1.5">
+            <span className="sr-only">
+              Available in{" "}
+              {visibleColors
+                .map(
+                  (productColor) => productColor.color.name
+                )
+                .join(", ")}
+              {extraColors > 0
+                ? ` and ${extraColors} more`
+                : ""}
+            </span>
+
             {visibleColors.map((productColor) => (
               <span
                 key={productColor.id}
+                aria-hidden="true"
                 title={productColor.color.name}
                 className="h-3.5 w-3.5 border border-border"
                 style={{
@@ -320,7 +333,10 @@ export default function ProductCard({
             ))}
 
             {extraColors > 0 && (
-              <span className="text-xs text-muted-foreground">
+              <span
+                aria-hidden="true"
+                className="text-xs text-muted-foreground"
+              >
                 +{extraColors}
               </span>
             )}
@@ -350,7 +366,7 @@ export default function ProductCard({
         {/* Wishlist Error */}
 
         {wishlistError && (
-          <p className="text-xs text-destructive">
+          <p role="alert" className="text-xs text-destructive">
             {wishlistError}
           </p>
         )}
