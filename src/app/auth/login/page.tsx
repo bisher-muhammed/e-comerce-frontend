@@ -7,7 +7,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import apiPublic from "@/app/lib/api/apiPublic";
 import { applyServerErrors } from "@/app/lib/api/formErrors";
-import { isAdminRole } from "@/app/lib/auth/roles";
 import {
   loginSchema,
   type LoginInput,
@@ -33,18 +32,12 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginInput) => {
   try {
-    const response = await apiPublic.post(
+    await apiPublic.post(
       "/auth/login",
       data
     );
 
-    const user = response.data.data.user;
-
-    if (isAdminRole(user.role)) {
-      router.replace("/admin/dashboard");
-    } else {
-      router.replace("/customer");
-    }
+    router.replace("/customer");
   } catch (error) {
     applyServerErrors(
       error,
