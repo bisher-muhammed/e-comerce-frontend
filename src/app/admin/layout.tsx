@@ -1,62 +1,17 @@
-"use client";
+import type { Metadata } from "next";
 
-import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import AdminShell from "./components/AdminShell";
 
-import AdminNavbar from "./components/AdminNavbar";
-import AdminSidebar from "./components/AdminSidebar";
-
-import { useCurrentUser } from "@/app/hooks/useCurrentUser";
-import { isAdminRole } from "@/app/lib/auth/roles";
+export const metadata: Metadata = {
+  title: { absolute: "Store Admin" },
+  description: "Store administration",
+  robots: { index: false, follow: false },
+};
 
 export default function AdminLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const router = useRouter();
-  const { user, isLoading } = useCurrentUser();
-
-  const allowed = isAdminRole(user?.role);
-
-  useEffect(() => {
-    if (isLoading || allowed) return;
-
-    router.replace(user ? "/customer" : "/auth/login");
-  }, [isLoading, allowed, user, router]);
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <p className="text-sm text-muted-foreground">
-          Checking access…
-        </p>
-      </div>
-    );
-  }
-
-  if (!allowed) {
-    return null;
-  }
-
-  return (
-    <div className="min-h-screen w-full overflow-x-hidden bg-background">
-      <AdminSidebar
-        open={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-      />
-
-      <div className="flex min-h-screen w-full min-w-0 flex-col lg:ml-64 lg:w-[calc(100%-16rem)]">
-        <AdminNavbar
-          onMenuClick={() => setSidebarOpen(true)}
-        />
-
-        <main className="min-w-0 flex-1">
-          {children}
-        </main>
-      </div>
-    </div>
-  );
+  return <AdminShell>{children}</AdminShell>;
 }

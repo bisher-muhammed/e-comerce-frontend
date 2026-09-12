@@ -1,7 +1,17 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
 import HeroCarousel from "@/app/auth/components/HeroCarousel";
+import { SITE_DESCRIPTION, SITE_NAME } from "@/app/lib/seo/site";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: `${SITE_NAME} — Shirts, Streetwear & Everyday Essentials`,
+  },
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+};
 
 
 const categories = [

@@ -1,89 +1,111 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import type { Metadata } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
-import { getProductBySlug } from "@/app/services/customer/product.service";
-import { getApiErrorMessage } from "@/app/lib/api/apiError";
 import type { Product } from "@/app/(customer)/customer/components/products/ProductCard";
+import { getProductBySlugServer } from "@/app/services/customer/product.server";
+import { SITE_NAME, toMetaDescription } from "@/app/lib/seo/site";
 
-import ProductGallery from "../../components/products/ProductGallery";
-import ProductOptions from "../../components/products/ProductOptions";
 import RelatedProducts from "../../components/products/RelatedProducts";
+import ProductDetail from "./ProductDetail";
 
-export default function ProductDetailsPage() {
-  const params = useParams();
-  const slug = params.slug as string;
+interface ProductPageProps {
+  params: Promise<{ slug: string }>;
+}
 
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
+const getPrimaryImage = (product: Product) => {
+  for (const color of product.colors) {
+    const images = [...color.images].sort(
+      (a, b) => a.sortOrder - b.sortOrder
+    );
 
-  const [selectedColorId, setSelectedColorId] = useState<number | null>(null);
-  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
+    const image = images.find((item) => item.isPrimary) ?? images[0];
 
-  useEffect(() => {
-    const loadProduct = async () => {
-      try {
-        setLoading(true);
-        setError("");
-
-        const data = await getProductBySlug(slug);
-        setProduct(data);
-
-        // Default to the first color that actually has stock, falling
-        // back to the first color if everything is sold out.
-        const firstAvailable =
-          data.colors.find((c: Product["colors"][number]) =>
-            c.variants.some((v) => v.stock > 0)
-          ) ?? data.colors[0];
-
-        setSelectedColorId(firstAvailable?.id ?? null);
-        setSelectedVariantId(null);
-      } catch (error: unknown) {
-        setError(getApiErrorMessage(error, "Unable to load product"));
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (slug) {
-      loadProduct();
+    if (image) {
+      return image;
     }
-  }, [slug]);
+  }
 
-  if (loading) {
+  return null;
+};
+
+export async function generateMetadata({
+  params,
+}: ProductPageProps): Promise<Metadata> {
+  const { slug } = await params;
+
+  let product: Product | null;
+
+  try {
+    product = await getProductBySlugServer(slug);
+  } catch {
+    return { title: "Product" };
+  }
+
+  if (!product) {
+    return {
+      title: "Product not found",
+      robots: { index: false, follow: true },
+    };
+  }
+
+  const description = toMetaDescription(
+    product.description,
+    `${product.name} — ${product.category.name} at ${SITE_NAME}.`
+  );
+
+  const canonical = `/customer/products/${product.slug}`;
+  const image = getPrimaryImage(product);
+
+  return {
+    title: product.name,
+    description,
+
+    alternates: { canonical },
+
+    openGraph: {
+      type: "website",
+      siteName: SITE_NAME,
+      title: product.name,
+      description,
+      url: canonical,
+      images: image
+        ? [{ url: image.url, alt: image.altText ?? product.name }]
+        : undefined,
+    },
+
+    twitter: {
+      card: image ? "summary_large_image" : "summary",
+      title: product.name,
+      description,
+      images: image ? [image.url] : undefined,
+    },
+  };
+}
+
+export default async function ProductDetailsPage({
+  params,
+}: ProductPageProps) {
+  const { slug } = await params;
+
+  let product: Product | null;
+
+  try {
+    product = await getProductBySlugServer(slug);
+  } catch {
     return (
       <main className="mx-auto max-w-7xl px-6 py-10">
-        <div className="grid gap-10 md:grid-cols-2">
-          <div className="aspect-3/4 animate-pulse bg-secondary" />
-          <div className="flex flex-col gap-4">
-            <div className="h-3 w-1/4 animate-pulse bg-secondary" />
-            <div className="h-8 w-3/4 animate-pulse bg-secondary" />
-            <div className="h-6 w-1/4 animate-pulse bg-secondary" />
-          </div>
-        </div>
+        <p className="text-sm text-destructive">Unable to load product</p>
       </main>
     );
   }
 
-  if (error || !product) {
-    return (
-      <main className="mx-auto max-w-7xl px-6 py-10">
-        <p className="text-sm text-destructive">
-          {error || "Product not found"}
-        </p>
-      </main>
-    );
+  if (!product) {
+    notFound();
   }
-
-  const selectedColor =
-    product.colors.find((c) => c.id === selectedColorId) ?? product.colors[0];
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
-      {/* Breadcrumb */}
       <nav className="mb-8 flex items-center gap-2 text-sm text-muted-foreground">
         <Link href="/" className="hover:text-foreground">
           Home
@@ -98,36 +120,15 @@ export default function ProductDetailsPage() {
         <span className="text-foreground">{product.name}</span>
       </nav>
 
-      <div className="grid gap-10 md:grid-cols-2">
-        <ProductGallery
-          images={selectedColor?.images ?? []}
-          productName={product.name}
-        />
+      <ProductDetail product={product}>
+        <p className="text-sm uppercase tracking-wide text-muted-foreground">
+          {product.category.name}
+        </p>
 
-        <div>
-          <p className="text-sm uppercase tracking-wide text-muted-foreground">
-            {product.category.name}
-          </p>
-          <h1 className="mt-2 text-3xl font-medium text-foreground">
-            {product.name}
-          </h1>
-
-          {selectedColor && (
-            <div className="mt-6">
-              <ProductOptions
-                product={product}
-                selectedColorId={selectedColor.id}
-                onSelectColor={(colorId) => {
-                  setSelectedColorId(colorId);
-                  setSelectedVariantId(null);
-                }}
-                selectedVariantId={selectedVariantId}
-                onSelectVariant={setSelectedVariantId}
-              />
-            </div>
-          )}
-        </div>
-      </div>
+        <h1 className="mt-2 text-3xl font-medium text-foreground">
+          {product.name}
+        </h1>
+      </ProductDetail>
 
       <RelatedProducts
         categoryId={product.category.id}

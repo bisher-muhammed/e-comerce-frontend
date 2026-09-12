@@ -8,32 +8,6 @@
 ## 1. CRITICAL
 ## 2. HIGH
 
-### H3. Retrying a failed order reuses a stale idempotency key
-
-[`checkout/page.tsx:122-123`](src/app/(customer)/checkout/page.tsx#L122-L123):
-
-```ts
-const [idempotencyKey] = useState(() => crypto.randomUUID());
-```
-
-Generated **once per page mount**. Correct for double-click protection, wrong for edit-and-retry: if the first attempt fails (invalid coupon, rejected address, stock race), the user fixes the input and clicks again — and the backend's dedup guard may return the **first, stale order**. The coupon change silently doesn't apply.
-
-**Fix:** regenerate whenever order inputs change (address, payment method, coupon, cart), keeping it stable only across retries of an identical payload.
-
-### H4. Every customer-facing page is titled "Store Admin"
-
-`grep -rn "generateMetadata|export const metadata" src/` → **one hit**, [`layout.tsx:15-18`](src/app/layout.tsx#L15-L18):
-
-```ts
-export const metadata: Metadata = { title: "Store Admin", description: "Store administration" };
-```
-
-No `generateMetadata` anywhere. Combined with `customer/products/[slug]/page.tsx` being `"use client"` with `useParams()` + `useEffect` fetching, **product pages are entirely client-rendered with an admin title and no product metadata**.
-
-For an e-commerce site: no per-product `<title>`, no description, no OG/Twitter cards (shared links show "Store Admin"), and crawlers get an empty shell.
-
-**Fix:** convert `[slug]/page.tsx` to a server component that awaits the product and exports `generateMetadata`, pushing only the interactive gallery/options into client children. Single highest-value change for both SEO and LCP.
-
 ### H5. Six dead links in global navigation
 
 | Dead link | Where | Should be |
