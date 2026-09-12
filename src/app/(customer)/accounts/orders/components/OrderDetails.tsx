@@ -1029,10 +1029,16 @@ export default function OrderDetails({
                                 }
                             </p>
 
-                            {order.shippingLine2 && (
+                            <p>
+                                {
+                                    order.shippingLine2
+                                }
+                            </p>
+
+                            {order.shippingLandmark && (
                                 <p>
                                     {
-                                        order.shippingLine2
+                                        order.shippingLandmark
                                     }
                                 </p>
                             )}

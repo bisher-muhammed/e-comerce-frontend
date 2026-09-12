@@ -70,7 +70,7 @@ export default function AddressesPage() {
 
       toast.success("Address added.");
     } catch (error) {
-      throw new Error(getApiErrorMessage(error, "Unable to create address"));
+      throw error;
     } finally {
       setSaving(false);
     }
@@ -96,7 +96,7 @@ export default function AddressesPage() {
 
       toast.success("Address updated.");
     } catch (error) {
-      throw new Error(getApiErrorMessage(error, "Unable to update address"));
+      throw error;
     } finally {
       setSaving(false);
     }
