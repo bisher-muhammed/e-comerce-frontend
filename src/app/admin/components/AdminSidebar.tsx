@@ -9,7 +9,6 @@ import {
   Tags,
   Users,
   UserCog,
-  Settings,
   LogOut,
   X,
 } from "lucide-react";
@@ -74,11 +73,6 @@ const management = [
     label: "Admins",
     href: "/admin/admins",
     icon: UserCog,
-  },
-  {
-    label: "Settings",
-    href: "/admin/settings",
-    icon: Settings,
   },
 ];
 

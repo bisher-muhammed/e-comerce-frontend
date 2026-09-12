@@ -95,14 +95,14 @@ export default function HomePage() {
 
             <div className="mt-9 flex flex-wrap gap-4">
               <Link
-                href="/products"
+                href="/customer"
                 className="inline-flex h-12 items-center justify-center bg-primary px-7 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
               >
                 Shop collection
               </Link>
 
               <Link
-                href="/products?category=new"
+                href="/customer#products"
                 className="inline-flex h-12 items-center justify-center border border-border px-7 text-sm font-medium transition hover:bg-secondary"
               >
                 Explore new arrivals
@@ -129,7 +129,7 @@ export default function HomePage() {
             </div>
 
             <Link
-              href="/products"
+              href="/customer"
               className="hidden text-sm underline underline-offset-4 md:block"
             >
               View all
@@ -140,9 +140,7 @@ export default function HomePage() {
             {categories.map((category) => (
               <Link
                 key={category.name}
-                href={`/products?category=${category.name
-                  .toLowerCase()
-                  .replace(" ", "-")}`}
+                href="/customer#products"
                 className="group bg-background p-8 transition hover:bg-secondary"
               >
                 {/* Category Image */}
@@ -188,7 +186,7 @@ export default function HomePage() {
     </div>
 
     <Link
-      href="/products"
+      href="/customer"
       className="text-sm underline underline-offset-4"
     >
       View all
@@ -199,7 +197,7 @@ export default function HomePage() {
     {featuredProducts.map((product) => (
       <Link
         key={product.id}
-        href={`/products/${product.id}`}
+        href="/customer#products"
         className="group"
       >
         {/* Product Image */}
@@ -252,7 +250,7 @@ export default function HomePage() {
           </p>
 
           <Link
-            href="/products"
+            href="/customer"
             className="mt-8 inline-flex h-12 items-center bg-background px-8 text-sm font-medium text-foreground transition-opacity hover:opacity-90"
           >
             Start shopping

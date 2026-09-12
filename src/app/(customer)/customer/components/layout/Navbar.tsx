@@ -78,25 +78,27 @@ export default function Navbar() {
         {/* Main Navigation */}
         <nav className="hidden items-center gap-8 text-sm md:flex">
           <Link
-            href="/shop"
+            href="/customer"
             className="text-gray-600 hover:text-black"
           >
             Shop
           </Link>
 
           <Link
-            href="/collections"
+            href="/coupon"
             className="text-gray-600 hover:text-black"
           >
-            Collections
+            Offers
           </Link>
 
-          <Link
-            href="/account"
-            className="text-gray-600 hover:text-black"
-          >
-            Account
-          </Link>
+          {user && (
+            <Link
+              href="/accounts/orders"
+              className="text-gray-600 hover:text-black"
+            >
+              Account
+            </Link>
+          )}
         </nav>
 
         {/* Right Side */}

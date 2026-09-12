@@ -127,7 +127,7 @@ export default function CartPage() {
         </div>
 
         <Link
-          href="/shop"
+          href="/customer"
           className="flex items-center gap-1 text-sm text-gray-600 hover:text-black"
         >
           <ChevronLeft size={16} />

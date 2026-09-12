@@ -635,7 +635,7 @@ export default function CheckoutPage() {
         </p>
 
         <Link
-          href="/shop"
+          href="/customer"
           className="mt-5 inline-block text-sm underline underline-offset-4"
         >
           Continue shopping
@@ -664,7 +664,7 @@ export default function CheckoutPage() {
         </p>
 
         <Link
-          href="/shop"
+          href="/customer"
           className="mt-6 inline-flex rounded-lg bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
         >
           Continue shopping
@@ -693,7 +693,7 @@ export default function CheckoutPage() {
               )
             }
             onContinueShopping={() =>
-              router.push("/shop")
+              router.push("/customer")
             }
           />
         </div>

@@ -13,7 +13,7 @@ interface AccountLayoutProps {
 const NAV_ITEMS = [
   { label: "Addresses", href: "/accounts/address" },
   { label: "Orders", href: "/accounts/orders" },
-  { label: "Profile", href: "/accounts/profile" },
+  { label: "Wishlist", href: "/accounts/wishlist" },
 ];
 
 export default function AccountLayout({
@@ -79,7 +79,7 @@ export default function AccountLayout({
             </nav>
 
             <Link
-              href="/shop"
+              href="/customer"
               className="mt-10 hidden items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground md:flex"
             >
               <ChevronLeft size={14} />
