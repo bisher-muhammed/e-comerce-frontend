@@ -17,5 +17,11 @@ export interface ContactInfo {
   keepUpdated: boolean;
 }
 
+export interface CheckoutTotals {
+  subtotal: number;
+  discountAmount: number;
+  total: number;
+}
+
 // Local-only helper so components don't need the full Address type reach-through.
 export type SelectedAddress = Address | undefined;

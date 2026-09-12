@@ -13,8 +13,11 @@ import {
   type Cart,
 } from "@/app/services/customer/cart.service";
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { useStoreData } from "@/app/components/store/StoreDataProvider";
 
 export default function CartPage() {
+  const { refreshCart } = useStoreData();
+
   const [cart, setCart] = useState<Cart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -57,6 +60,8 @@ export default function CartPage() {
             }
           : prev
       );
+
+      await refreshCart();
     } catch (err) {
       setActionError(getApiErrorMessage(err, "Failed to update cart item"));
       throw err;
@@ -73,6 +78,8 @@ export default function CartPage() {
           ? { ...prev, items: prev.items.filter((item) => item.id !== cartItemId) }
           : prev
       );
+
+      await refreshCart();
     } catch (err) {
       setActionError(getApiErrorMessage(err, "Failed to remove cart item"));
       throw err;
@@ -127,7 +134,7 @@ export default function CartPage() {
         </div>
 
         <Link
-          href="/shop"
+          href="/customer"
           className="flex items-center gap-1 text-sm text-gray-600 hover:text-black"
         >
           <ChevronLeft size={16} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import ProductGrid, { type Product } from "../components/ProductGrid";
@@ -10,11 +10,20 @@ import {
   getProducts,
   deleteProduct,
   updateProduct,
+  type ProductPagination,
 } from "@/app/services/admin/product.service";
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { useToast } from "@/app/components/feedback/ToastProvider";
+import { useConfirm } from "@/app/components/feedback/ConfirmProvider";
+
+const PRODUCTS_PER_PAGE = 20;
 
 export default function ProductsPage() {
   const [products, setProducts] = useState<Product[]>([]);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<ProductPagination | null>(
+    null
+  );
   const [editingProductId, setEditingProductId] = useState<number | null>(
     null
   );
@@ -23,33 +32,49 @@ export default function ProductsPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadProducts = async () => {
+  const toast = useToast();
+  const confirm = useConfirm();
+
+  const loadProducts = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const response = await getProducts();
+      const response = await getProducts({
+        page,
+        limit: PRODUCTS_PER_PAGE,
+      });
 
       const list = Array.isArray(response.data)
         ? response.data
         : (response.data?.data ?? []);
 
+      if (list.length === 0 && page > 1) {
+        setPage((current) => current - 1);
+        return;
+      }
+
       setProducts(list);
+      setPagination(response.data?.pagination ?? null);
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to load products."));
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
     loadProducts();
-  }, []);
+  }, [loadProducts]);
 
   const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this product?"
-    );
+    const confirmed = await confirm({
+      title: "Delete this product?",
+      description:
+        "The product and its variants will be removed. This cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
 
     if (!confirmed) return;
 
@@ -58,6 +83,7 @@ export default function ProductsPage() {
       setError(null);
       await deleteProduct(id);
       await loadProducts();
+      toast.success("Product deleted.");
     } catch (err) {
       setError(getApiErrorMessage(err, "Failed to delete product."));
     } finally {
@@ -199,6 +225,37 @@ export default function ProductsPage() {
           onDelete={handleDelete}
           onToggleStatus={handleToggleStatus}
         />
+      )}
+
+      {/* Pagination */}
+      {!loading && pagination && pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between border border-border bg-background px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            Page {pagination.page} of {pagination.totalPages} ·{" "}
+            {pagination.total} product
+            {pagination.total === 1 ? "" : "s"}
+          </p>
+
+          <div className="flex gap-2">
+            <button
+              type="button"
+              disabled={!pagination.hasPreviousPage || saving}
+              onClick={() => setPage(pagination.page - 1)}
+              className="border border-border px-3 py-1.5 text-sm transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+            >
+              Previous
+            </button>
+
+            <button
+              type="button"
+              disabled={!pagination.hasNextPage || saving}
+              onClick={() => setPage(pagination.page + 1)}
+              className="border border-border px-3 py-1.5 text-sm transition-colors hover:bg-secondary disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent"
+            >
+              Next
+            </button>
+          </div>
+        </div>
       )}
     </div>
   );

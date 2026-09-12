@@ -69,12 +69,16 @@ export default function CategoryForm({
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
       {/* Name */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium">
+        <label
+          htmlFor="category-name"
+          className="mb-1.5 block text-sm font-medium"
+        >
           Category Name
         </label>
 
         <input
           {...register("name")}
+          id="category-name"
           type="text"
           placeholder="Example: Shirts"
           className="h-10 w-full border border-border bg-background px-3 text-sm outline-none focus:border-foreground"
@@ -89,12 +93,16 @@ export default function CategoryForm({
 
       {/* Slug */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium">
+        <label
+          htmlFor="category-slug"
+          className="mb-1.5 block text-sm font-medium"
+        >
           Slug
         </label>
 
         <input
           {...register("slug")}
+          id="category-slug"
           type="text"
           placeholder="shirts"
           className="h-10 w-full border border-border bg-background px-3 text-sm outline-none focus:border-foreground"
@@ -109,12 +117,16 @@ export default function CategoryForm({
 
       {/* Description */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium">
+        <label
+          htmlFor="category-description"
+          className="mb-1.5 block text-sm font-medium"
+        >
           Description
         </label>
 
         <textarea
           {...register("description")}
+          id="category-description"
           rows={4}
           placeholder="Category description..."
           className="w-full resize-none border border-border bg-background px-3 py-2 text-sm outline-none focus:border-foreground"

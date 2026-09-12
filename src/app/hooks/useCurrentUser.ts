@@ -2,13 +2,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import apiPrivate from "@/app/lib/api/apiPrivate";
+import apiPrivate, {
+  optionalAuthRequest,
+} from "@/app/lib/api/apiPrivate";
+import type { UserRole } from "@/app/lib/auth/roles";
 
-interface CurrentUser {
+export interface CurrentUser {
   id: number;
   firstName: string;
   lastName: string | null;
   email: string;
+  role: UserRole;
 }
 
 export function useCurrentUser() {
@@ -20,8 +24,15 @@ export function useCurrentUser() {
 
     (async () => {
       try {
-        const response = await apiPrivate.get("/auth/me");
-        console.log("Response",response.data)
+        /*
+         * This is a probe, not an assertion of access — a guest
+         * must get `user = null`, not a redirect to login.
+         */
+        const response = await apiPrivate.get(
+          "/auth/me",
+          optionalAuthRequest
+        );
+
         if (!cancelled) setUser(response.data.data.user);
       } catch {
         // 401 or network error — either way, no authenticated user.

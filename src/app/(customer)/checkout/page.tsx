@@ -2,8 +2,10 @@
 "use client";
 
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 
@@ -39,8 +41,11 @@ import {
 } from "@/app/lib/api/apiError";
 
 import {
+  validateCoupon,
   type CouponValidationResult,
 } from "@/app/services/customer/coupon.service";
+
+import { clearCheckoutDraft, readCheckoutDraft, reconcileDraftSteps, writeCheckoutDraft, } from "./lib/checkoutDraft";
 
 import { CheckoutStepper } from "./components/Checkoutstepper";
 import { OrderSummaryCard } from "./components/OrderSummaryCard";
@@ -52,15 +57,27 @@ import { OrderConfirmedStep } from "./components/Orderconfirmedstep";
 
 
 import type {
+  CheckoutTotals,
   ContactInfo,
   PaymentMethod,
   StepId,
 } from "./components/types";
 
+import { useStoreData } from "@/app/components/store/StoreDataProvider";
+
+const calculateSubtotal = (cart: Cart): number =>
+  cart.items.reduce(
+    (total, item) =>
+      total +
+      Number(item.productVariant.price) *
+        item.quantity,
+    0
+  );
+
 export default function CheckoutPage() {
   const router = useRouter();
 
-
+  const { refreshCart } = useStoreData();
 
   const [cart, setCart] =
     useState<Cart | null>(null);
@@ -73,6 +90,9 @@ export default function CheckoutPage() {
 
   const [loadError, setLoadError] =
     useState("");
+
+  const [draftRestored, setDraftRestored] =
+    useState(false);
 
   // ============================================================
   // CHECKOUT STEPS
@@ -119,8 +139,63 @@ export default function CheckoutPage() {
     useState(false);
 
 
-  const [idempotencyKey] =
-    useState(() => crypto.randomUUID());
+  // ============================================================
+  // IDEMPOTENCY
+  // ============================================================
+
+  const orderSignature = useMemo(
+    () =>
+      JSON.stringify({
+        cartId: cart?.id ?? null,
+
+        items:
+          cart?.items.map((item) => [
+            item.productVariantId,
+            item.quantity,
+            item.productVariant.price,
+          ]) ?? [],
+
+        addressId: selectedAddressId,
+
+        paymentMethod,
+
+        contactEmail: contact.email
+          .trim()
+          .toLowerCase(),
+
+        contactPhone: contact.phone.trim(),
+
+        couponCode:
+          appliedCoupon?.coupon.code ?? null,
+      }),
+    [
+      cart,
+      selectedAddressId,
+      paymentMethod,
+      contact.email,
+      contact.phone,
+      appliedCoupon,
+    ]
+  );
+
+  const idempotencyRef = useRef<{
+    signature: string;
+    key: string;
+  } | null>(null);
+
+  const takeIdempotencyKey = useCallback(() => {
+    if (
+      idempotencyRef.current?.signature !==
+      orderSignature
+    ) {
+      idempotencyRef.current = {
+        signature: orderSignature,
+        key: crypto.randomUUID(),
+      };
+    }
+
+    return idempotencyRef.current.key;
+  }, [orderSignature]);
 
 
 
@@ -148,19 +223,79 @@ export default function CheckoutPage() {
 
         if (cancelled) return;
 
-        setCart(cartRes.data);
-        setAddresses(addressRes.data);
+        const loadedCart = cartRes.data;
+        const loadedAddresses = addressRes.data;
 
-        const defaultAddress =
-          addressRes.data.find(
-            (address) => address.isDefault
-          );
-
-        setSelectedAddressId(
-          defaultAddress?.id ??
-            addressRes.data[0]?.id ??
-            null
+        const draft = readCheckoutDraft(
+          loadedCart.id
         );
+
+        const defaultAddressId =
+          loadedAddresses.find(
+            (address) => address.isDefault
+          )?.id ??
+          loadedAddresses[0]?.id ??
+          null;
+
+        const restoredAddressId =
+          draft &&
+          loadedAddresses.some(
+            (address) =>
+              address.id ===
+              draft.selectedAddressId
+          )
+            ? draft.selectedAddressId
+            : defaultAddressId;
+
+        let restoredCoupon: CouponValidationResult | null =
+          null;
+
+        if (draft?.couponCode) {
+          try {
+            restoredCoupon =
+              await validateCoupon({
+                code: draft.couponCode,
+                subtotal:
+                  calculateSubtotal(
+                    loadedCart
+                  ),
+              });
+          } catch {
+            restoredCoupon = null;
+          }
+        }
+
+        if (cancelled) return;
+
+        setCart(loadedCart);
+        setAddresses(loadedAddresses);
+        setSelectedAddressId(
+          restoredAddressId
+        );
+
+        if (draft) {
+          const steps =
+            reconcileDraftSteps(
+              draft,
+              restoredAddressId !== null
+            );
+
+          setContact(draft.contact);
+          setPaymentMethod(
+            draft.paymentMethod
+          );
+          setCompletedSteps(
+            steps.completedSteps
+          );
+          setCurrentStep(
+            steps.currentStep
+          );
+          setAppliedCoupon(
+            restoredCoupon
+          );
+        }
+
+        setDraftRestored(true);
       } catch (err) {
         if (!cancelled) {
           setLoadError(
@@ -186,19 +321,35 @@ export default function CheckoutPage() {
   // SUBTOTAL
   // ============================================================
 
-  const subtotal = useMemo(() => {
-    if (!cart) return 0;
+  const subtotal = useMemo(
+    () =>
+      cart
+        ? calculateSubtotal(cart)
+        : 0,
+    [cart]
+  );
 
-    return cart.items.reduce(
-      (total, item) =>
-        total +
-        Number(
-          item.productVariant.price
-        ) *
-          item.quantity,
-      0
+  // ============================================================
+  // TOTALS
+  // ============================================================
+
+  const totals = useMemo<CheckoutTotals>(() => {
+    const discountAmount = Math.min(
+      Math.max(
+        appliedCoupon?.discountAmount ?? 0,
+        0
+      ),
+      subtotal
     );
-  }, [cart]);
+
+    return {
+      subtotal,
+
+      discountAmount,
+
+      total: subtotal - discountAmount,
+    };
+  }, [subtotal, appliedCoupon]);
 
   // ============================================================
   // STOCK CHECK
@@ -214,6 +365,39 @@ export default function CheckoutPage() {
       ) ?? false,
     [cart]
   );
+
+  // ============================================================
+  // PERSIST PROGRESS
+  // ============================================================
+
+  const cartId = cart?.id ?? null;
+
+  useEffect(() => {
+
+    if (!draftRestored || confirmedOrder) {
+      return;
+    }
+
+    writeCheckoutDraft(cartId, {
+      currentStep,
+      completedSteps,
+      contact,
+      selectedAddressId,
+      paymentMethod,
+      couponCode:
+        appliedCoupon?.coupon.code ?? null,
+    });
+  }, [
+    draftRestored,
+    confirmedOrder,
+    cartId,
+    currentStep,
+    completedSteps,
+    contact,
+    selectedAddressId,
+    paymentMethod,
+    appliedCoupon,
+  ]);
 
   // ============================================================
   // SELECTED ADDRESS
@@ -309,7 +493,8 @@ export default function CheckoutPage() {
           couponCode:
             appliedCoupon?.coupon.code,
 
-          idempotencyKey,
+          idempotencyKey:
+            takeIdempotencyKey(),
         });
 
       const {
@@ -325,9 +510,13 @@ export default function CheckoutPage() {
       if (mode === "COD") {
         setPlacing(false);
 
+        clearCheckoutDraft(cartId);
+
         setConfirmedOrder({
           id: order.id,
         });
+
+        await refreshCart();
 
         return;
       }
@@ -348,20 +537,6 @@ export default function CheckoutPage() {
         new window.Razorpay({
           key: razorpay.keyId,
 
-          /**
-           * IMPORTANT:
-           *
-           * This amount comes from the backend.
-           *
-           * After coupon support is implemented
-           * correctly on the backend, this should be:
-           *
-           * ₹360 -> 36000 paise
-           *
-           * instead of:
-           *
-           * ₹400 -> 40000 paise
-           */
           amount: razorpay.amount,
 
           currency: razorpay.currency,
@@ -391,9 +566,13 @@ export default function CheckoutPage() {
 
               setPlacing(false);
 
+              clearCheckoutDraft(cartId);
+
               setConfirmedOrder({
                 id: order.id,
               });
+
+              await refreshCart();
             } catch (err) {
               setPlacing(false);
 
@@ -469,7 +648,7 @@ export default function CheckoutPage() {
         </p>
 
         <Link
-          href="/shop"
+          href="/customer"
           className="mt-5 inline-block text-sm underline underline-offset-4"
         >
           Continue shopping
@@ -498,7 +677,7 @@ export default function CheckoutPage() {
         </p>
 
         <Link
-          href="/shop"
+          href="/customer"
           className="mt-6 inline-flex rounded-lg bg-foreground px-6 py-3 text-sm font-medium text-background transition-opacity hover:opacity-90"
         >
           Continue shopping
@@ -527,7 +706,7 @@ export default function CheckoutPage() {
               )
             }
             onContinueShopping={() =>
-              router.push("/shop")
+              router.push("/customer")
             }
           />
         </div>
@@ -657,7 +836,7 @@ export default function CheckoutPage() {
                   paymentMethod
                 }
                 cart={cart}
-                subtotal={subtotal}
+                totals={totals}
                 hasStockIssue={
                   hasStockIssue
                 }
@@ -678,7 +857,7 @@ export default function CheckoutPage() {
           <aside className="lg:sticky lg:top-6 lg:h-fit">
             <OrderSummaryCard
               cart={cart}
-              subtotal={subtotal}
+              totals={totals}
 
               /**
                * Parent owns the actual applied coupon.

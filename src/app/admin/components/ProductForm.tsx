@@ -1,7 +1,7 @@
 "use client";
 
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   useForm,
   useFieldArray,
@@ -13,6 +13,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Plus, Trash2, Star, X } from "lucide-react";
 
 import apiPrivate from "@/app/lib/api/apiPrivate";
+import { getApiErrorMessage } from "@/app/lib/api/apiError";
 
 import {
   createProductSchema,
@@ -47,6 +48,21 @@ interface ColorFormValue {
   images: ImageFormValue[];
   variants: VariantFormValue[];
 }
+
+type ImagePayload =
+  | {
+      existing: true;
+      id: number;
+      altText?: string;
+      sortOrder: number;
+      isPrimary: boolean;
+    }
+  | {
+      file: File;
+      altText?: string;
+      sortOrder: number;
+      isPrimary: boolean;
+    };
 
 interface ProductFormValues {
   name: string;
@@ -238,7 +254,15 @@ export default function ProductForm({
         });
       } catch (error) {
         console.error("Failed to load product:", error);
-        setFormError("Failed to load product details.");
+
+        if (!cancelled) {
+          setFormError(
+            getApiErrorMessage(
+              error,
+              "Failed to load product details."
+            )
+          );
+        }
       } finally {
         if (!cancelled) setLoadingProduct(false);
       }
@@ -265,6 +289,22 @@ export default function ProductForm({
 
   const onSubmit = async (values: ProductFormValues) => {
     setFormError(null);
+
+    const hasImageWithoutFile = values.colors.some((color) =>
+      color.images.some(
+        (image) =>
+          !(image.existing && image.id !== undefined) &&
+          !image.file
+      )
+    );
+
+    if (hasImageWithoutFile) {
+      setFormError(
+        "One or more images is missing a file. Please re-select it."
+      );
+      return;
+    }
+
     setSaving(true);
 
     try {
@@ -272,29 +312,31 @@ export default function ProductForm({
         colorId: color.colorId,
         variants: color.variants,
 
-        images: color.images.map((image) => {
+        images: color.images.flatMap<ImagePayload>((image) => {
           if (image.existing && image.id !== undefined) {
-            return {
-              existing: true as const,
-              id: image.id,
-              altText: image.altText,
-              sortOrder: image.sortOrder,
-              isPrimary: image.isPrimary,
-            };
+            return [
+              {
+                existing: true as const,
+                id: image.id,
+                altText: image.altText,
+                sortOrder: image.sortOrder,
+                isPrimary: image.isPrimary,
+              },
+            ];
           }
 
           if (!image.file) {
-            throw new Error(
-              "One or more images is missing a file. Please re-select it."
-            );
+            return [];
           }
 
-          return {
-            file: image.file,
-            altText: image.altText,
-            sortOrder: image.sortOrder,
-            isPrimary: image.isPrimary,
-          };
+          return [
+            {
+              file: image.file,
+              altText: image.altText,
+              sortOrder: image.sortOrder,
+              isPrimary: image.isPrimary,
+            },
+          ];
         }),
       }));
 
@@ -324,7 +366,10 @@ export default function ProductForm({
     } catch (error) {
       console.error("Failed to save product:", error);
       setFormError(
-        "Failed to save product. Check the fields below and try again."
+        getApiErrorMessage(
+          error,
+          "Failed to save product. Please try again."
+        )
       );
     } finally {
       setSaving(false);
@@ -355,11 +400,15 @@ export default function ProductForm({
       <section className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium">
+            <label
+              htmlFor="product-name"
+              className="mb-1 block text-xs font-medium"
+            >
               Name
             </label>
             <input
               {...register("name")}
+              id="product-name"
               className="h-10 w-full border border-border px-3 text-sm"
               placeholder="Classic Cotton T-Shirt"
             />
@@ -371,11 +420,15 @@ export default function ProductForm({
           </div>
 
           <div>
-            <label className="mb-1 block text-xs font-medium">
+            <label
+              htmlFor="product-slug"
+              className="mb-1 block text-xs font-medium"
+            >
               Slug
             </label>
             <input
               {...register("slug")}
+              id="product-slug"
               className="h-10 w-full border border-border px-3 text-sm"
               placeholder="classic-cotton-t-shirt"
             />
@@ -388,22 +441,30 @@ export default function ProductForm({
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium">
+          <label
+            htmlFor="product-description"
+            className="mb-1 block text-xs font-medium"
+          >
             Description
           </label>
           <textarea
             {...register("description")}
+            id="product-description"
             rows={2}
             className="w-full border border-border px-3 py-2 text-sm"
           />
         </div>
 
         <div>
-          <label className="mb-1 block text-xs font-medium">
+          <label
+            htmlFor="product-details"
+            className="mb-1 block text-xs font-medium"
+          >
             Details
           </label>
           <textarea
             {...register("details")}
+            id="product-details"
             rows={4}
             className="w-full border border-border px-3 py-2 text-sm"
           />
@@ -411,11 +472,15 @@ export default function ProductForm({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1 block text-xs font-medium">
+            <label
+              htmlFor="product-category"
+              className="mb-1 block text-xs font-medium"
+            >
               Category
             </label>
             <select
               {...register("categoryId", { valueAsNumber: true })}
+              id="product-category"
               className="h-10 w-full border border-border bg-background px-3 text-sm"
             >
               <option value={0}>Select a category</option>
@@ -542,18 +607,44 @@ function ColorCard({
 
   const images = watch(`colors.${colorIndex}.images`);
 
+  const objectUrlsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    const objectUrls = objectUrlsRef.current;
+
+    return () => {
+      objectUrls.forEach((url) => URL.revokeObjectURL(url));
+      objectUrls.clear();
+    };
+  }, []);
+
   const handleAddFiles = (fileList: FileList | null) => {
     if (!fileList) return;
 
     Array.from(fileList).forEach((file) => {
+      const previewUrl = URL.createObjectURL(file);
+
+      objectUrlsRef.current.add(previewUrl);
+
       imageArray.append({
         file,
-        previewUrl: URL.createObjectURL(file),
+        previewUrl,
         altText: "",
         sortOrder: imageArray.fields.length,
         isPrimary: imageArray.fields.length === 0,
       });
     });
+  };
+
+  const handleRemoveImage = (imageIndex: number) => {
+    const previewUrl = images?.[imageIndex]?.previewUrl;
+
+    if (previewUrl && objectUrlsRef.current.has(previewUrl)) {
+      URL.revokeObjectURL(previewUrl);
+      objectUrlsRef.current.delete(previewUrl);
+    }
+
+    imageArray.remove(imageIndex);
   };
 
   const setPrimary = (targetIndex: number) => {
@@ -571,11 +662,17 @@ function ColorCard({
     <div className="border border-border">
       <div className="flex items-center justify-between border-b border-border bg-secondary/30 px-4 py-2">
         <div className="flex items-center gap-3">
-          <label className="text-xs font-medium">Color</label>
+          <label
+            htmlFor={`product-color-${colorIndex}`}
+            className="text-xs font-medium"
+          >
+            Color
+          </label>
           <select
             {...register(`colors.${colorIndex}.colorId`, {
               valueAsNumber: true,
             })}
+            id={`product-color-${colorIndex}`}
             className="h-8 border border-border bg-background px-2 text-sm"
           >
             <option value={0}>Select a color</option>
@@ -635,7 +732,7 @@ function ColorCard({
                 >
                   <button
                     type="button"
-                    onClick={() => imageArray.remove(imageIndex)}
+                    onClick={() => handleRemoveImage(imageIndex)}
                     className="absolute right-1 top-1 flex h-5 w-5 items-center justify-center bg-background/90"
                     aria-label="Remove image"
                   >
@@ -668,6 +765,7 @@ function ColorCard({
                     {...register(
                       `colors.${colorIndex}.images.${imageIndex}.altText`
                     )}
+                    aria-label={`Alt text for image ${imageIndex + 1}`}
                     placeholder="Alt text"
                     className="h-7 w-full border border-border px-2 text-[11px]"
                   />
@@ -709,6 +807,7 @@ function ColorCard({
                     `colors.${colorIndex}.variants.${variantIndex}.sizeId`,
                     { valueAsNumber: true }
                   )}
+                  aria-label={`Size for variant ${variantIndex + 1}`}
                   className="h-9 border border-border bg-background px-2 text-sm"
                 >
                   <option value={0}>Size</option>
@@ -724,6 +823,7 @@ function ColorCard({
                   step="0.01"
                   min="0"
                   placeholder="Price"
+                  aria-label={`Price for variant ${variantIndex + 1}`}
                   {...register(
                     `colors.${colorIndex}.variants.${variantIndex}.price`,
                     { valueAsNumber: true }
@@ -735,6 +835,7 @@ function ColorCard({
                   type="number"
                   min="0"
                   placeholder="Stock"
+                  aria-label={`Stock for variant ${variantIndex + 1}`}
                   {...register(
                     `colors.${colorIndex}.variants.${variantIndex}.stock`,
                     { valueAsNumber: true }

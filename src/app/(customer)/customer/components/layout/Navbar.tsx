@@ -1,60 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { Heart, ShoppingBag, MapPin } from "lucide-react";
+import { Heart, ShoppingBag, MapPin, LogOut, } from "lucide-react";
 
-import { getCart } from "@/app/services/customer/cart.service";
-import { getWishlist } from "@/app/services/customer/wishlist.service";
-import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+import { useLogout } from "@/app/hooks/useLogout";
+import { useStoreData } from "@/app/components/store/StoreDataProvider";
 
 export default function Navbar() {
-  const { user } = useCurrentUser();
-
-  const [cartCount, setCartCount] = useState(0);
-  const [wishlistCount, setWishlistCount] = useState(0);
-
-  useEffect(() => {
-    if (!user) {
-      setCartCount(0);
-      setWishlistCount(0);
-      return;
-    }
-
-    let cancelled = false;
-
-    const fetchCounts = async () => {
-      try {
-        const [cartResponse, wishlistResponse] =
-          await Promise.all([
-            getCart(),
-            getWishlist(),
-          ]);
-
-        if (cancelled) return;
-
-        const cartItemCount =
-          cartResponse.data.items.reduce(
-            (sum, item) => sum + item.quantity,
-            0
-          );
-
-        const wishlistItemCount =
-          wishlistResponse.data?.items.length ?? 0;
-
-        setCartCount(cartItemCount);
-        setWishlistCount(wishlistItemCount);
-      } catch {
-        // Navbar should not break if count requests fail.
-      }
-    };
-
-    fetchCounts();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [user]);
+  const { user, cartCount, wishlistCount } = useStoreData();
+  const { logout, isLoggingOut } = useLogout();
 
   return (
     <header className="border-b border-gray-100">
@@ -71,25 +25,27 @@ export default function Navbar() {
         {/* Main Navigation */}
         <nav className="hidden items-center gap-8 text-sm md:flex">
           <Link
-            href="/shop"
+            href="/customer"
             className="text-gray-600 hover:text-black"
           >
             Shop
           </Link>
 
           <Link
-            href="/collections"
+            href="/coupon"
             className="text-gray-600 hover:text-black"
           >
-            Collections
+            Offers
           </Link>
 
-          <Link
-            href="/account"
-            className="text-gray-600 hover:text-black"
-          >
-            Account
-          </Link>
+          {user && (
+            <Link
+              href="/accounts/orders"
+              className="text-gray-600 hover:text-black"
+            >
+              Account
+            </Link>
+          )}
         </nav>
 
         {/* Right Side */}
@@ -124,12 +80,21 @@ export default function Navbar() {
           <Link
             href="/accounts/wishlist"
             className="relative"
-            aria-label="Wishlist"
+            aria-label={
+              wishlistCount > 0
+                ? `Wishlist, ${wishlistCount} ${
+                    wishlistCount === 1 ? "item" : "items"
+                  }`
+                : "Wishlist"
+            }
           >
-            <Heart size={20} />
+            <Heart size={20} aria-hidden="true" />
 
             {wishlistCount > 0 && (
-              <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[10px] text-white">
+              <span
+                aria-hidden="true"
+                className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[10px] text-white"
+              >
                 {wishlistCount}
               </span>
             )}
@@ -139,16 +104,45 @@ export default function Navbar() {
           <Link
             href="/cart"
             className="relative"
-            aria-label="Cart"
+            aria-label={
+              cartCount > 0
+                ? `Cart, ${cartCount} ${
+                    cartCount === 1 ? "item" : "items"
+                  }`
+                : "Cart"
+            }
           >
-            <ShoppingBag size={20} />
+            <ShoppingBag size={20} aria-hidden="true" />
 
             {cartCount > 0 && (
-              <span className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[10px] text-white">
+              <span
+                aria-hidden="true"
+                className="absolute -right-2 -top-2 flex h-4 w-4 items-center justify-center rounded-full bg-black text-[10px] text-white"
+              >
                 {cartCount}
               </span>
             )}
           </Link>
+
+          {/* Sign out */}
+          {user && (
+            <button
+              type="button"
+              onClick={logout}
+              disabled={isLoggingOut}
+              aria-label="Sign out"
+              title="Sign out"
+              className="
+                text-gray-600
+                transition-colors
+                hover:text-black
+                disabled:pointer-events-none
+                disabled:opacity-50
+              "
+            >
+              <LogOut size={20} />
+            </button>
+          )}
 
         </div>
       </div>

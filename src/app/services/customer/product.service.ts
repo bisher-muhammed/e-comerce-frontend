@@ -1,7 +1,28 @@
 import apiPublic from "@/app/lib/api/apiPublic";
 
-export const getProducts = async () => {
-  const response = await apiPublic.get("/customer/products");
+export interface ProductPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
+
+export interface ListProductsParams {
+  page?: number;
+  limit?: number;
+  categoryId?: number;
+}
+
+export const getProducts = async (
+  params?: ListProductsParams
+) => {
+  const response = await apiPublic.get(
+    "/customer/products",
+    { params }
+  );
+
   return response.data;
 };
 

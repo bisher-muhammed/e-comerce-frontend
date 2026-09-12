@@ -69,12 +69,16 @@ export default function ColorForm({
     >
       {/* Name */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium">
+        <label
+          htmlFor="color-name"
+          className="mb-1.5 block text-sm font-medium"
+        >
           Color Name
         </label>
 
         <input
           {...register("name")}
+          id="color-name"
           type="text"
           placeholder="Example: Navy Blue"
           className="h-10 w-full border border-border bg-background px-3 text-sm outline-none focus:border-foreground"
@@ -89,12 +93,16 @@ export default function ColorForm({
 
       {/* Slug */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium">
+        <label
+          htmlFor="color-slug"
+          className="mb-1.5 block text-sm font-medium"
+        >
           Slug
         </label>
 
         <input
           {...register("slug")}
+          id="color-slug"
           type="text"
           placeholder="navy-blue"
           className="h-10 w-full border border-border bg-background px-3 text-sm outline-none focus:border-foreground"
@@ -109,19 +117,24 @@ export default function ColorForm({
 
       {/* Hex Code */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium">
+        <label
+          htmlFor="color-hex"
+          className="mb-1.5 block text-sm font-medium"
+        >
           Hex Color
         </label>
 
         <div className="flex gap-3">
           <input
             {...register("hexCode")}
+            id="color-hex"
             type="text"
             placeholder="#000000"
             className="h-10 flex-1 border border-border bg-background px-3 text-sm uppercase outline-none focus:border-foreground"
           />
 
           <div
+            aria-hidden="true"
             className="h-10 w-10 shrink-0 border border-border"
             style={{
               backgroundColor:

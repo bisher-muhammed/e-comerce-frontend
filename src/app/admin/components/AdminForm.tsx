@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import apiPrivate from "@/app/lib/api/apiPrivate";
+import { getApiErrorMessage } from "@/app/lib/api/apiError";
 
 import {
   createAdminSchema,
@@ -51,7 +52,7 @@ export default function AdminForm({
     try {
       setServerError(null);
 
-      const response = await apiPrivate.post(
+      await apiPrivate.post(
         "/admin/admins",
         {
           firstName: data.firstName,
@@ -61,23 +62,14 @@ export default function AdminForm({
         }
       );
 
-      console.log(
-        "Admin created:",
-        response.data
-      );
-
       onSuccess();
-    } catch (error: any) {
-      console.error(
-        "Failed to create admin:",
-        error
+    } catch (error) {
+      setServerError(
+        getApiErrorMessage(
+          error,
+          "Unable to create administrator."
+        )
       );
-
-      const message =
-        error.response?.data?.message ||
-        "Unable to create administrator.";
-
-      setServerError(message);
     }
   };
 

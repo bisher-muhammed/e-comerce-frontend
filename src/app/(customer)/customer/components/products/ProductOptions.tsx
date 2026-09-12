@@ -6,7 +6,12 @@ import { useRouter } from "next/navigation";
 
 import type { Product } from "@/app/(customer)/customer/components/products/ProductCard";
 import { addToCart } from "@/app/services/customer/cart.service";
+import {
+  addWishlistItem,
+  removeWishlistItem,
+} from "@/app/services/customer/wishlist.service";
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { useStoreData } from "@/app/components/store/StoreDataProvider";
 
 interface ProductOptionsProps {
   product: Product;
@@ -27,7 +32,17 @@ export default function ProductOptions({
 }: ProductOptionsProps) {
   const router = useRouter();
 
+  const {
+    isWishlisted: isProductWishlisted,
+    setWishlisted,
+    refreshCart,
+  } = useStoreData();
+
+  const isWishlisted = isProductWishlisted(product.id);
+
   const [isAdding, setIsAdding] = useState(false);
+  const [isTogglingWishlist, setIsTogglingWishlist] =
+    useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const selectedColor = product.colors.find(
@@ -61,6 +76,8 @@ export default function ProductOptions({
         quantity: 1,
       });
 
+      await refreshCart();
+
       router.push("/cart");
     } catch (error) {
       setError(
@@ -71,6 +88,32 @@ export default function ProductOptions({
       );
     } finally {
       setIsAdding(false);
+    }
+  };
+
+  const handleToggleWishlist = async () => {
+    if (isTogglingWishlist) return;
+
+    try {
+      setError(null);
+      setIsTogglingWishlist(true);
+
+      if (isWishlisted) {
+        await removeWishlistItem(product.id);
+        setWishlisted(product.id, false);
+      } else {
+        await addWishlistItem(product.id);
+        setWishlisted(product.id, true);
+      }
+    } catch (error) {
+      setError(
+        getApiErrorMessage(
+          error,
+          "Failed to update wishlist"
+        )
+      );
+    } finally {
+      setIsTogglingWishlist(false);
     }
   };
 
@@ -128,6 +171,12 @@ export default function ProductOptions({
                 key={productColor.id}
                 type="button"
                 title={productColor.color.name}
+                aria-label={
+                  colorStock === 0
+                    ? `${productColor.color.name} — out of stock`
+                    : productColor.color.name
+                }
+                aria-pressed={isSelected}
                 onClick={() =>
                   onSelectColor(
                     productColor.id
@@ -186,6 +235,12 @@ export default function ProductOptions({
                     )
                   }
                   disabled={isOutOfStock}
+                  aria-label={
+                    isOutOfStock
+                      ? `Size ${variant.size.name} — out of stock`
+                      : `Size ${variant.size.name}`
+                  }
+                  aria-pressed={isSelected}
                   className={`min-w-12 border px-4 py-2 text-sm transition-colors ${
                     isSelected
                       ? "border-foreground bg-foreground text-primary-foreground"
@@ -205,7 +260,7 @@ export default function ProductOptions({
 
       {/* Error */}
       {error && (
-        <p className="mt-4 text-sm text-red-600">
+        <p role="alert" className="mt-4 text-sm text-red-600">
           {error}
         </p>
       )}
@@ -229,10 +284,22 @@ export default function ProductOptions({
 
         <button
           type="button"
-          aria-label="Add to wishlist"
-          className="flex h-12 w-12 items-center justify-center border border-border text-foreground transition-colors hover:border-foreground/60"
+          onClick={handleToggleWishlist}
+          disabled={isTogglingWishlist}
+          aria-label={
+            isWishlisted
+              ? "Remove from wishlist"
+              : "Add to wishlist"
+          }
+          aria-pressed={isWishlisted}
+          className="flex h-12 w-12 items-center justify-center border border-border text-foreground transition-colors hover:border-foreground/60 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          <Heart className="h-4 w-4" />
+          <Heart
+            className={`h-4 w-4 ${
+              isWishlisted ? "fill-current" : ""
+            }`}
+            aria-hidden="true"
+          />
         </button>
       </div>
     </div>

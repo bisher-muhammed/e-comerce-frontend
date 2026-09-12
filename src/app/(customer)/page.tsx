@@ -1,29 +1,39 @@
+import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 
 import HeroCarousel from "@/app/auth/components/HeroCarousel";
+import { SITE_DESCRIPTION, SITE_NAME } from "@/app/lib/seo/site";
+
+export const metadata: Metadata = {
+  title: {
+    absolute: `${SITE_NAME} — Shirts, Streetwear & Everyday Essentials`,
+  },
+  description: SITE_DESCRIPTION,
+  alternates: { canonical: "/" },
+};
 
 
 const categories = [
   {
     name: "New Arrivals",
     description: "Freshly dropped cuts, seasonal fabrics, and trending patterns.",
-    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.19.jpeg",
+    image: "/photos/category-new-arrivals.jpeg",
   },
   {
     name: "Casual Wear",
     description: "Relaxed button-downs, breathable linens, and everyday flannels.",
-    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.28.jpeg",
+    image: "/photos/category-casual-wear.jpeg",
   },
   {
     name: "Formal & Office",
     description: "Crisp dress shirts, sharp collars, and wrinkle-resistant fabrics.",
-    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.47.jpeg",
+    image: "/photos/category-formal-office.jpeg",
   },
   {
     name: "Oversized & Streetwear",
     description: "Boxy fits, heavyweight cotton, and bold graphic statement pieces.",
-    image: "/photos/WhatsApp Image 2026-08-19 at 19.40.04.jpeg",
+    image: "/photos/category-streetwear.jpeg",
   },
 ];
 
@@ -35,7 +45,7 @@ const featuredProducts = [
     name: "Classic Denim Overshirt",
     category: "Casual Wear",
     price: "$89",
-    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.25.jpeg",
+    image: "/photos/featured-denim-overshirt.jpeg",
   },
   {
     id: 2,
@@ -49,7 +59,7 @@ const featuredProducts = [
     name: "Heavyweight Boxy Tee",
     category: "Oversized & Streetwear",
     price: "$45",
-    image: "/photos/WhatsApp Image 2026-08-19 at 19.39.16.jpeg",
+    image: "/photos/featured-boxy-tee.jpeg",
   },
   {
     id: 4,
@@ -85,14 +95,14 @@ export default function HomePage() {
 
             <div className="mt-9 flex flex-wrap gap-4">
               <Link
-                href="/products"
+                href="/customer"
                 className="inline-flex h-12 items-center justify-center bg-primary px-7 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
               >
                 Shop collection
               </Link>
 
               <Link
-                href="/products?category=new"
+                href="/customer#products"
                 className="inline-flex h-12 items-center justify-center border border-border px-7 text-sm font-medium transition hover:bg-secondary"
               >
                 Explore new arrivals
@@ -119,7 +129,7 @@ export default function HomePage() {
             </div>
 
             <Link
-              href="/products"
+              href="/customer"
               className="hidden text-sm underline underline-offset-4 md:block"
             >
               View all
@@ -130,9 +140,7 @@ export default function HomePage() {
             {categories.map((category) => (
               <Link
                 key={category.name}
-                href={`/products?category=${category.name
-                  .toLowerCase()
-                  .replace(" ", "-")}`}
+                href="/customer#products"
                 className="group bg-background p-8 transition hover:bg-secondary"
               >
                 {/* Category Image */}
@@ -178,7 +186,7 @@ export default function HomePage() {
     </div>
 
     <Link
-      href="/products"
+      href="/customer"
       className="text-sm underline underline-offset-4"
     >
       View all
@@ -189,7 +197,7 @@ export default function HomePage() {
     {featuredProducts.map((product) => (
       <Link
         key={product.id}
-        href={`/products/${product.id}`}
+        href="/customer#products"
         className="group"
       >
         {/* Product Image */}
@@ -242,7 +250,7 @@ export default function HomePage() {
           </p>
 
           <Link
-            href="/products"
+            href="/customer"
             className="mt-8 inline-flex h-12 items-center bg-background px-8 text-sm font-medium text-foreground transition-opacity hover:opacity-90"
           >
             Start shopping

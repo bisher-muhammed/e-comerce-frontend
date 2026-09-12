@@ -16,6 +16,8 @@ import {
 
 import type { AddressFormData } from "@/app/validations/customer/address.validation";
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import { useToast } from "@/app/components/feedback/ToastProvider";
+import { useConfirm } from "@/app/components/feedback/ConfirmProvider";
 
 // Render this inside AccountLayout, e.g.:
 //   <AccountLayout user={user}><AddressesPage /></AccountLayout>
@@ -29,6 +31,9 @@ export default function AddressesPage() {
   const [editingAddress, setEditingAddress] = useState<Address | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionLoading, setActionLoading] = useState<number | null>(null);
+
+  const toast = useToast();
+  const confirm = useConfirm();
 
   const loadAddresses = async () => {
     try {
@@ -62,6 +67,8 @@ export default function AddressesPage() {
 
       setShowForm(false);
       setEditingAddress(null);
+
+      toast.success("Address added.");
     } catch (error) {
       throw new Error(getApiErrorMessage(error, "Unable to create address"));
     } finally {
@@ -86,6 +93,8 @@ export default function AddressesPage() {
 
       setShowForm(false);
       setEditingAddress(null);
+
+      toast.success("Address updated.");
     } catch (error) {
       throw new Error(getApiErrorMessage(error, "Unable to update address"));
     } finally {
@@ -94,9 +103,12 @@ export default function AddressesPage() {
   };
 
   const handleDelete = async (id: number) => {
-    const confirmed = window.confirm(
-      "Are you sure you want to delete this address?"
-    );
+    const confirmed = await confirm({
+      title: "Delete this address?",
+      description: "This cannot be undone.",
+      confirmLabel: "Delete",
+      destructive: true,
+    });
 
     if (!confirmed) return;
 
@@ -105,6 +117,7 @@ export default function AddressesPage() {
       setError("");
       await deleteAddress(id);
       setAddresses((prev) => prev.filter((a) => a.id !== id));
+      toast.success("Address deleted.");
     } catch (error) {
       setError(getApiErrorMessage(error, "Unable to delete address"));
     } finally {
@@ -122,6 +135,8 @@ export default function AddressesPage() {
       setAddresses((prev) =>
         prev.map((a) => ({ ...a, isDefault: a.id === response.data.id }))
       );
+
+      toast.success("Default address updated.");
     } catch (error) {
       setError(getApiErrorMessage(error, "Unable to set default address"));
     } finally {

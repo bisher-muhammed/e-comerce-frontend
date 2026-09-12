@@ -6,10 +6,19 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import apiPublic from "@/app/lib/api/apiPublic";
+import { applyServerErrors } from "@/app/lib/api/formErrors";
 import {
   registerSchema,
   type RegisterInput,
 } from "../../validations/customer/auth.validation";
+
+const FORM_FIELDS = [
+  "firstName",
+  "lastName",
+  "email",
+  "password",
+  "confirmPassword",
+] as const;
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -17,6 +26,7 @@ export default function RegisterPage() {
   const {
     register,
     handleSubmit,
+    setError,
     formState: { errors, isSubmitting },
   } = useForm<RegisterInput>({
     resolver: zodResolver(registerSchema),
@@ -26,21 +36,17 @@ export default function RegisterPage() {
   const onSubmit = async (data: RegisterInput) => {
     try {
       const { confirmPassword, ...registrationData } = data;
-      const response = await apiPublic.post(
-        "/auth/register",
-        registrationData
+
+      await apiPublic.post("/auth/register", registrationData);
+
+      router.push("/auth/verify-otp");
+    } catch (error) {
+      applyServerErrors(
+        error,
+        setError,
+        FORM_FIELDS,
+        "Unable to create your account."
       );
-      const { registrationToken } = response.data.data;
-
-      router.push(`/auth/verify-otp?token=${registrationToken}`);
-    } catch (error: any) {
-      console.error("Registration failed:", error);
-
-      const message =
-        error.response?.data?.message ||
-        "Unable to create your account.";
-
-      alert(message);
     }
   };
 
@@ -298,6 +304,16 @@ export default function RegisterPage() {
               </p>
             )}
           </div>
+
+          {/* Server Error */}
+          {errors.root && (
+            <p
+              role="alert"
+              className="text-center text-sm text-destructive"
+            >
+              {errors.root.message}
+            </p>
+          )}
 
           {/* Submit Button */}
           <button

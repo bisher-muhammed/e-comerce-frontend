@@ -1,6 +1,8 @@
 
 "use client";
 
+import Image from "next/image";
+
 import { useState } from "react";
 
 import {
@@ -17,10 +19,11 @@ import {
 } from "@/app/services/customer/coupon.service";
 
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import type { CheckoutTotals } from "./types";
 
 interface OrderSummaryCardProps {
   cart: Cart;
-  subtotal: number;
+  totals: CheckoutTotals;
 
   /**
    * Coupon state belongs to CheckoutPage because
@@ -36,10 +39,13 @@ interface OrderSummaryCardProps {
 
 export function OrderSummaryCard({
   cart,
-  subtotal,
+  totals,
   appliedCoupon,
   onCouponChange,
 }: OrderSummaryCardProps) {
+  const { subtotal, discountAmount, total } =
+    totals;
+
   const [promoCode, setPromoCode] = useState("");
   const [couponLoading, setCouponLoading] =
     useState(false);
@@ -113,16 +119,6 @@ export function OrderSummaryCard({
   };
 
   // ============================================================
-  // TOTALS
-  // ============================================================
-
-  const discountAmount =
-    appliedCoupon?.discountAmount ?? 0;
-
-  const finalTotal =
-    appliedCoupon?.finalSubtotal ?? subtotal;
-
-  // ============================================================
   // RENDER
   // ============================================================
 
@@ -180,13 +176,15 @@ export function OrderSummaryCard({
             >
               <div className="relative h-14 w-12 shrink-0 overflow-hidden rounded-md bg-secondary">
                 {image && (
-                  <img
+                  <Image
                     src={image.url}
                     alt={
                       image.altText ??
                       product.name
                     }
-                    className="h-full w-full object-cover"
+                    fill
+                    sizes="48px"
+                    className="object-cover"
                   />
                 )}
 
@@ -364,7 +362,7 @@ export function OrderSummaryCard({
                 )}
 
               <p className="text-xl font-semibold tracking-tight">
-                ₹{finalTotal.toFixed(2)}
+                ₹{total.toFixed(2)}
               </p>
             </div>
           </div>

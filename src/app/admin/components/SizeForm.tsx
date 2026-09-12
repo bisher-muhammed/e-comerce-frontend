@@ -36,7 +36,7 @@ export default function SizeForm({
     formState: { errors },
   } = useForm<
     CreateSizeFormInput,
-    any,
+    unknown,
     CreateSizeFormData
   >({
     resolver: zodResolver(createSizeSchema),
@@ -68,12 +68,16 @@ export default function SizeForm({
     >
       {/* Name */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium">
+        <label
+          htmlFor="size-name"
+          className="mb-1.5 block text-sm font-medium"
+        >
           Size Name
         </label>
 
         <input
           {...register("name")}
+          id="size-name"
           type="text"
           placeholder="Example: XL"
           className="h-10 w-full border border-border bg-background px-3 text-sm outline-none focus:border-foreground"
@@ -88,7 +92,10 @@ export default function SizeForm({
 
       {/* Sort Order */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium">
+        <label
+          htmlFor="size-sort-order"
+          className="mb-1.5 block text-sm font-medium"
+        >
           Sort Order
         </label>
 
@@ -96,6 +103,7 @@ export default function SizeForm({
           {...register("sortOrder", {
             valueAsNumber: true,
           })}
+          id="size-sort-order"
           type="number"
           min={0}
           placeholder="0"
