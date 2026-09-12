@@ -135,8 +135,63 @@ export default function CheckoutPage() {
     useState(false);
 
 
-  const [idempotencyKey] =
-    useState(() => crypto.randomUUID());
+  // ============================================================
+  // IDEMPOTENCY
+  // ============================================================
+
+  const orderSignature = useMemo(
+    () =>
+      JSON.stringify({
+        cartId: cart?.id ?? null,
+
+        items:
+          cart?.items.map((item) => [
+            item.productVariantId,
+            item.quantity,
+            item.productVariant.price,
+          ]) ?? [],
+
+        addressId: selectedAddressId,
+
+        paymentMethod,
+
+        contactEmail: contact.email
+          .trim()
+          .toLowerCase(),
+
+        contactPhone: contact.phone.trim(),
+
+        couponCode:
+          appliedCoupon?.coupon.code ?? null,
+      }),
+    [
+      cart,
+      selectedAddressId,
+      paymentMethod,
+      contact.email,
+      contact.phone,
+      appliedCoupon,
+    ]
+  );
+
+  const [idempotency, setIdempotency] =
+    useState(() => ({
+      signature: orderSignature,
+      key: crypto.randomUUID(),
+    }));
+
+  if (
+    idempotency.signature !==
+    orderSignature
+  ) {
+
+    setIdempotency({
+      signature: orderSignature,
+      key: crypto.randomUUID(),
+    });
+  }
+
+  const idempotencyKey = idempotency.key;
 
 
 
