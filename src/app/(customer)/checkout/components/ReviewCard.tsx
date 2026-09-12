@@ -75,8 +75,8 @@ export function ReviewCard({
                     {address.firstName} {address.lastName}
                   </span>
                   <br />
-                  {address.addressLine1}
-                  {address.addressLine2 ? `, ${address.addressLine2}` : ""}
+                  {address.addressLine1}, {address.addressLine2}
+                  {address.landmark ? `, ${address.landmark}` : ""}
                   <br />
                   {address.city}, {address.state} {address.postalCode}
                 </p>

@@ -1,5 +1,7 @@
 import apiPrivate from "@/app/lib/api/apiPrivate";
 
+import type { AddressFormData } from "@/app/validations/customer/address.validation";
+
 export interface Address {
   id: number;
   userId: number;
@@ -11,7 +13,8 @@ export interface Address {
   phone: string;
 
   addressLine1: string;
-  addressLine2: string | null;
+  addressLine2: string;
+  landmark: string | null;
 
   city: string;
   state: string;
@@ -62,18 +65,7 @@ export const getAddress = async (
 // CREATE ADDRESS
 
 export const createAddress = async (
-  data: {
-    firstName: string;
-    lastName?: string;
-    phone: string;
-    addressLine1: string;
-    addressLine2?: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country?: string;
-    isDefault?: boolean;
-  }
+  data: AddressFormData
 ): Promise<AddressResponse> => {
   const response = await apiPrivate.post<AddressResponse>(
     "/customer/addresses",
@@ -87,18 +79,7 @@ export const createAddress = async (
 
 export const updateAddress = async (
   id: number,
-  data: Partial<{
-    firstName: string;
-    lastName: string;
-    phone: string;
-    addressLine1: string;
-    addressLine2: string;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-    isDefault: boolean;
-  }>
+  data: Partial<AddressFormData>
 ): Promise<AddressResponse> => {
   const response = await apiPrivate.patch<AddressResponse>(
     `/customer/addresses/${id}`,

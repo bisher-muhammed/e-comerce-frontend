@@ -17,9 +17,6 @@ export default function AddressCard({
   onSetDefault,
   loading = false,
 }: AddressCardProps) {
-  // `label` (Home / Office / Other) is NOT part of the Address type you gave
-  // me. This falls back to a generic tag until that field actually exists
-  // on the model — add it to the schema, don't just trust this fallback.
   const typeLabel = (address.label ?? "Address").toUpperCase();
 
   return (
@@ -66,7 +63,9 @@ export default function AddressCard({
         <div className="mt-1 space-y-0.5 text-muted-foreground">
           <p>{address.addressLine1}</p>
 
-          {address.addressLine2 && <p>{address.addressLine2}</p>}
+          <p>{address.addressLine2}</p>
+
+          {address.landmark && <p>{address.landmark}</p>}
 
           <p>
             {address.city}, {address.state} {address.postalCode}
@@ -78,9 +77,6 @@ export default function AddressCard({
         <p className="mt-3 text-muted-foreground">{address.phone}</p>
       </div>
 
-      {/* Screenshot uses a checkbox here, but a checkbox implies a state you
-          can toggle off, which isn't true for "default" — you can only make
-          a DIFFERENT address default. Kept as-is to match the reference. */}
       {!address.isDefault && (
         <label className="mt-5 flex items-center gap-2 text-sm text-muted-foreground">
           <input
@@ -95,4 +91,4 @@ export default function AddressCard({
       )}
     </article>
   );
-}''
+}

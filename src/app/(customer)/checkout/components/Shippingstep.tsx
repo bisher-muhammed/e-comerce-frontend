@@ -76,8 +76,8 @@ export function ShippingStep({
                         {address.firstName} {address.lastName}
                       </span>{" "}
                       <span className="text-muted-foreground">
-                        — {address.addressLine1}
-                        {address.addressLine2 ? `, ${address.addressLine2}` : ""},{" "}
+                        — {address.addressLine1}, {address.addressLine2}
+                        {address.landmark ? `, ${address.landmark}` : ""},{" "}
                         {address.city} {address.postalCode}
                       </span>
                     </p>
