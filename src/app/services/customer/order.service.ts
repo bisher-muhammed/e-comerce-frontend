@@ -114,7 +114,9 @@ export interface OrderDetails {
 
     shippingLine1: string;
 
-    shippingLine2: string | null;
+    shippingLine2: string;
+
+    shippingLandmark: string | null;
 
     shippingCity: string;
 

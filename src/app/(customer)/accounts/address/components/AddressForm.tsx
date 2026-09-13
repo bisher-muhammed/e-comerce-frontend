@@ -6,8 +6,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import {
   addressSchema,
+  INDIAN_STATES,
   type AddressFormData,
 } from "@/app/validations/customer/address.validation";
+
+import { applyServerErrors } from "@/app/lib/api/formErrors";
 
 import type { Address } from "@/app/services/customer/address.service";
 
@@ -24,6 +27,20 @@ const ADDRESS_LABELS = [
   { value: "OTHER", label: "Other" },
 ] as const;
 
+const FORM_FIELDS = [
+  "label",
+  "firstName",
+  "lastName",
+  "phone",
+  "addressLine1",
+  "addressLine2",
+  "landmark",
+  "postalCode",
+  "city",
+  "state",
+  "country",
+] as const;
+
 const DEFAULT_VALUES: AddressFormData = {
   label: "HOME",
   firstName: "",
@@ -31,9 +48,10 @@ const DEFAULT_VALUES: AddressFormData = {
   phone: "",
   addressLine1: "",
   addressLine2: "",
-  city: "",
-  state: "",
+  landmark: "",
   postalCode: "",
+  city: "",
+  state: "" as AddressFormData["state"],
   country: "India",
 };
 
@@ -49,7 +67,8 @@ export default function AddressForm({
     register,
     handleSubmit,
     reset,
-    formState: { errors, isDirty, isValid },
+    setError,
+    formState: { errors, isSubmitting },
   } = useForm<AddressFormData>({
     resolver: zodResolver(addressSchema),
     mode: "onBlur",
@@ -65,11 +84,12 @@ export default function AddressForm({
         lastName: address.lastName ?? "",
         phone: address.phone,
         addressLine1: address.addressLine1,
-        addressLine2: address.addressLine2 ?? "",
-        city: address.city,
-        state: address.state,
+        addressLine2: address.addressLine2,
+        landmark: address.landmark ?? "",
         postalCode: address.postalCode,
-        country: address.country,
+        city: address.city,
+        state: address.state as AddressFormData["state"],
+        country: "India",
       });
     } else {
       reset(DEFAULT_VALUES);
@@ -77,13 +97,24 @@ export default function AddressForm({
   }, [address, reset]);
 
   const submit = async (data: AddressFormData) => {
-    await onSubmit(data);
+    try {
+      await onSubmit(data);
+    } catch (error) {
+      applyServerErrors(
+        error,
+        setError,
+        FORM_FIELDS,
+        isEditing
+          ? "Unable to update address. Please try again."
+          : "Unable to save address. Please try again."
+      );
+    }
   };
 
-  const canSubmit = !loading && (isDirty ? isValid : true);
+  const busy = loading || isSubmitting;
 
   return (
-    <form onSubmit={handleSubmit(submit)} className="space-y-8">
+    <form onSubmit={handleSubmit(submit)} className="space-y-8" noValidate>
       {/* HEADER */}
       <div>
         <h2 className="text-lg font-medium text-foreground">
@@ -142,14 +173,14 @@ export default function AddressForm({
         </div>
 
         <TextField
-          label="Phone"
+          label="Mobile number"
           required
           error={errors.phone?.message}
           inputProps={{
             ...register("phone"),
-            placeholder: "10 digit phone number",
+            placeholder: "10 digit mobile number",
             inputMode: "numeric",
-            autoComplete: "tel",
+            autoComplete: "tel-national",
             maxLength: 10,
           }}
         />
@@ -162,58 +193,45 @@ export default function AddressForm({
         </legend>
 
         <TextField
-          label="Address line 1"
+          label="Flat, House no., Building, Apartment"
           required
           error={errors.addressLine1?.message}
           inputProps={{
             ...register("addressLine1"),
-            placeholder: "House number, street",
+            placeholder: "Flat 4B, Sunrise Residency",
             autoComplete: "address-line1",
           }}
         />
 
         <TextField
-          label="Address line 2"
+          label="Area, Street, Sector, Village"
+          required
           error={errors.addressLine2?.message}
           inputProps={{
             ...register("addressLine2"),
-            placeholder: "Apartment, landmark, etc. (optional)",
+            placeholder: "MG Road, Sector 12",
             autoComplete: "address-line2",
+          }}
+        />
+
+        <TextField
+          label="Landmark"
+          error={errors.landmark?.message}
+          inputProps={{
+            ...register("landmark"),
+            placeholder: "E.g. near Apollo Hospital",
+            autoComplete: "off",
           }}
         />
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <TextField
-            label="City"
-            required
-            error={errors.city?.message}
-            inputProps={{
-              ...register("city"),
-              placeholder: "City",
-              autoComplete: "address-level2",
-            }}
-          />
-
-          <TextField
-            label="State"
-            required
-            error={errors.state?.message}
-            inputProps={{
-              ...register("state"),
-              placeholder: "State",
-              autoComplete: "address-level1",
-            }}
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <TextField
-            label="Postal code"
+            label="Pincode"
             required
             error={errors.postalCode?.message}
             inputProps={{
               ...register("postalCode"),
-              placeholder: "6 digit postal code",
+              placeholder: "6 digit pincode",
               inputMode: "numeric",
               autoComplete: "postal-code",
               maxLength: 6,
@@ -221,41 +239,84 @@ export default function AddressForm({
           />
 
           <TextField
+            label="Town / City"
+            required
+            error={errors.city?.message}
+            inputProps={{
+              ...register("city"),
+              placeholder: "Town or city",
+              autoComplete: "address-level2",
+            }}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <SelectField
+            label="State"
+            required
+            fullWidth
+            error={errors.state?.message}
+            selectProps={{
+              ...register("state"),
+              autoComplete: "address-level1",
+            }}
+          >
+            <option value="">Choose a state</option>
+
+            {INDIAN_STATES.map((state) => (
+              <option key={state} value={state}>
+                {state}
+              </option>
+            ))}
+          </SelectField>
+
+          <TextField
             label="Country"
             required
             error={errors.country?.message}
             inputProps={{
               ...register("country"),
+              readOnly: true,
+              tabIndex: -1,
               autoComplete: "country-name",
+              className: "cursor-not-allowed text-muted-foreground",
             }}
           />
         </div>
       </fieldset>
 
       {/* ACTIONS */}
-      <div className="flex gap-3 border-t border-border pt-6">
-        <button
-          type="submit"
-          disabled={!canSubmit}
-          className="border border-foreground bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
-        >
-          {loading
-            ? "Saving..."
-            : isEditing
-              ? "Update address"
-              : "Save address"}
-        </button>
-
-        {onCancel && (
-          <button
-            type="button"
-            onClick={onCancel}
-            disabled={loading}
-            className="border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-secondary disabled:opacity-50"
-          >
-            Cancel
-          </button>
+      <div className="space-y-4 border-t border-border pt-6">
+        {errors.root?.message && (
+          <p className="border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+            {errors.root.message}
+          </p>
         )}
+
+        <div className="flex gap-3">
+          <button
+            type="submit"
+            disabled={busy}
+            className="border border-foreground bg-foreground px-5 py-2.5 text-sm font-medium text-background transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {busy
+              ? "Saving..."
+              : isEditing
+                ? "Update address"
+                : "Save address"}
+          </button>
+
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={busy}
+              className="border border-border px-5 py-2.5 text-sm font-medium transition-colors hover:bg-secondary disabled:opacity-50"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
       </div>
     </form>
   );
@@ -290,6 +351,8 @@ function TextField({
   const id = useId();
   const errorId = `${id}-error`;
 
+  const { className, ...rest } = inputProps;
+
   return (
     <div className="space-y-1.5">
       <label
@@ -309,8 +372,8 @@ function TextField({
         aria-describedby={error ? errorId : undefined}
         className={`${FIELD_BASE} ${
           error ? FIELD_BORDER_ERROR : FIELD_BORDER
-        }`}
-        {...inputProps}
+        } ${className ?? ""}`}
+        {...rest}
       />
 
       {error && (
@@ -325,6 +388,7 @@ function TextField({
 interface SelectFieldProps {
   label: string;
   required?: boolean;
+  fullWidth?: boolean;
   error?: string;
   selectProps: React.SelectHTMLAttributes<HTMLSelectElement>;
   children: React.ReactNode;
@@ -333,6 +397,7 @@ interface SelectFieldProps {
 function SelectField({
   label,
   required,
+  fullWidth = false,
   error,
   selectProps,
   children,
@@ -341,7 +406,7 @@ function SelectField({
   const errorId = `${id}-error`;
 
   return (
-    <div className="max-w-xs space-y-1.5">
+    <div className={`space-y-1.5 ${fullWidth ? "" : "max-w-xs"}`}>
       <label
         htmlFor={id}
         className="text-sm font-medium text-foreground"
