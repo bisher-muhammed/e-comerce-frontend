@@ -70,11 +70,21 @@ export interface CartItem {
   updatedAt: string;
 
   productVariant: CartProductVariant;
+
+  // Effective pricing calculated by the backend
+  originalPrice: number;
+  finalPrice: number;
+  discountPercentage: number | null;
+  offerSource: "PRODUCT" | "CATEGORY" | null;
+
+  lineTotal: string;
+  priceChanged: boolean;
 }
 
 export interface Cart {
   id: number | null;
   items: CartItem[];
+  subtotal:string;
 }
 
 export interface CartResponse {

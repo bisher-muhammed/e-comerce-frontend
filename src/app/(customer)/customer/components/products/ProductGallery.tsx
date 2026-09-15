@@ -14,13 +14,17 @@ interface GalleryImage {
 interface ProductGalleryProps {
   images: GalleryImage[];
   productName: string;
+  discountPercentage?: number | null;
 }
 
-export default function ProductGallery({ images, productName }: ProductGalleryProps) {
+export default function ProductGallery({
+  images,
+  productName,
+  discountPercentage,
+}: ProductGalleryProps) {
   const sorted = [...images].sort((a, b) => a.sortOrder - b.sortOrder);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  // Reset to the first image whenever the image set changes (i.e. color switch)
   useEffect(() => {
     setActiveIndex(0);
   }, [images]);
@@ -40,6 +44,8 @@ export default function ProductGallery({ images, productName }: ProductGalleryPr
   const goNext = () =>
     setActiveIndex((i) => (i === sorted.length - 1 ? 0 : i + 1));
 
+  const hasDiscount = discountPercentage != null;
+
   return (
     <div className="flex flex-col gap-3">
       <div className="relative aspect-3/4 overflow-hidden bg-secondary">
@@ -52,6 +58,12 @@ export default function ProductGallery({ images, productName }: ProductGalleryPr
           className="object-cover"
           sizes="(max-width: 768px) 100vw, 50vw"
         />
+
+        {hasDiscount && (
+          <span className="absolute left-3 top-3 z-10 border border-green-700 bg-green-700 px-2 py-1 text-xs font-semibold tracking-wide text-white shadow-sm">
+            {discountPercentage}% OFF
+          </span>
+        )}
 
         {sorted.length > 1 && (
           <>
