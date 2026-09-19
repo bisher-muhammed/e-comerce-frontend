@@ -65,12 +65,11 @@ import type {
 
 import { useStoreData } from "@/app/components/store/StoreDataProvider";
 
+
 const calculateSubtotal = (cart: Cart): number =>
   cart.items.reduce(
     (total, item) =>
-      total +
-      Number(item.productVariant.price) *
-        item.quantity,
+      total + item.finalPrice * item.quantity,
     0
   );
 

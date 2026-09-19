@@ -1,18 +1,27 @@
-// app/cart/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
+
 import Link from "next/link";
-import { ChevronLeft, Lock, RotateCcw, Truck } from "lucide-react";
+
+import {
+  ChevronLeft,
+  Lock,
+  RotateCcw,
+  Truck,
+} from "lucide-react";
 
 import CartItemRow from "./components/CartItemRow";
+
 import {
   getCart,
   updateCartItem,
   removeCartItem,
   type Cart,
 } from "@/app/services/customer/cart.service";
+
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+
 import { useStoreData } from "@/app/components/store/StoreDataProvider";
 
 export default function CartPage() {
@@ -29,14 +38,25 @@ export default function CartPage() {
     (async () => {
       try {
         setError(null);
+
         const response = await getCart();
-        if (!cancelled) setCart(response.data);
+
+        if (!cancelled) {
+          setCart(response.data);
+        }
       } catch (err) {
         if (!cancelled) {
-          setError(getApiErrorMessage(err, "Failed to load cart"));
+          setError(
+            getApiErrorMessage(
+              err,
+              "Failed to load cart"
+            )
+          );
         }
       } finally {
-        if (!cancelled) setIsLoading(false);
+        if (!cancelled) {
+          setIsLoading(false);
+        }
       }
     })();
 
@@ -45,17 +65,48 @@ export default function CartPage() {
     };
   }, []);
 
-  const handleUpdateQuantity = async (cartItemId: number, quantity: number) => {
+
+const handleUpdateQuantity = async (
+  cartItemId: number,
+  quantity: number
+) => {
+  try {
+    setActionError(null);
+
+    await updateCartItem(cartItemId, { quantity });
+
+    // Reload the complete cart so the item keeps
+    // productVariant, stock, pricing, images, etc.
+    const response = await getCart();
+
+    setCart(response.data);
+
+    await refreshCart();
+  } catch (err) {
+    setActionError(
+      getApiErrorMessage(
+        err,
+        "Failed to update cart item"
+      )
+    );
+
+    throw err;
+  }
+};
+
+
+  const handleRemove = async (cartItemId: number) => {
     try {
       setActionError(null);
-      const response = await updateCartItem(cartItemId, { quantity });
+
+      await removeCartItem(cartItemId);
 
       setCart((prev) =>
         prev
           ? {
               ...prev,
-              items: prev.items.map((item) =>
-                item.id === cartItemId ? response.data : item
+              items: prev.items.filter(
+                (item) => item.id !== cartItemId
               ),
             }
           : prev
@@ -63,31 +114,23 @@ export default function CartPage() {
 
       await refreshCart();
     } catch (err) {
-      setActionError(getApiErrorMessage(err, "Failed to update cart item"));
-      throw err;
-    }
-  };
-
-  const handleRemove = async (cartItemId: number) => {
-    try {
-      setActionError(null);
-      await removeCartItem(cartItemId);
-
-      setCart((prev) =>
-        prev
-          ? { ...prev, items: prev.items.filter((item) => item.id !== cartItemId) }
-          : prev
+      setActionError(
+        getApiErrorMessage(
+          err,
+          "Failed to remove cart item"
+        )
       );
 
-      await refreshCart();
-    } catch (err) {
-      setActionError(getApiErrorMessage(err, "Failed to remove cart item"));
       throw err;
     }
   };
 
   if (isLoading) {
-    return <div className="mx-auto max-w-6xl px-4 py-10">Loading cart...</div>;
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-10">
+        Loading cart...
+      </div>
+    );
   }
 
   if (error) {
@@ -106,17 +149,18 @@ export default function CartPage() {
     );
   }
 
-  const subtotal = cart.items.reduce(
-    (total, item) => total + Number(item.productVariant.price) * item.quantity,
-    0
-  );
+  const subtotal = Number(cart.subtotal);
 
   const hasStockIssue = cart.items.some(
     (item) =>
-      item.productVariant.stock === 0 || item.quantity > item.productVariant.stock
+      item.productVariant.stock === 0 ||
+      item.quantity > item.productVariant.stock
   );
 
-  const itemCount = cart.items.reduce((sum, item) => sum + item.quantity, 0);
+  const itemCount = cart.items.reduce(
+    (sum, item) => sum + item.quantity,
+    0
+  );
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -125,10 +169,12 @@ export default function CartPage() {
           <p className="text-xs uppercase tracking-wide text-gray-500">
             Review your order
           </p>
+
           <h1 className="text-3xl">
             Shopping Cart{" "}
             <span className="text-lg text-gray-500">
-              ({itemCount} {itemCount === 1 ? "item" : "items"})
+              ({itemCount}{" "}
+              {itemCount === 1 ? "item" : "items"})
             </span>
           </h1>
         </div>
@@ -179,41 +225,48 @@ export default function CartPage() {
               <span>Subtotal</span>
               <span>₹{subtotal.toFixed(2)}</span>
             </div>
+
             <div className="flex justify-between">
               <span>Shipping</span>
-              <span className="text-green-600">Free</span>
+              <span className="text-green-600">
+                Free
+              </span>
             </div>
           </div>
 
           <div className="mt-4 flex items-center justify-between border-t pt-4">
             <span className="font-medium">Total</span>
+
             <div className="text-right">
-              <span className="text-lg font-semibold">₹{subtotal.toFixed(2)}</span>
-              <p className="text-xs text-gray-400">incl. tax</p>
+              <span className="text-lg font-semibold">
+                ₹{subtotal.toFixed(2)}
+              </span>
+
+              <p className="text-xs text-gray-400">
+                incl. tax
+              </p>
             </div>
           </div>
 
           {hasStockIssue && (
             <p className="mt-3 text-sm text-red-600">
-              Some items in your cart are no longer available in the requested
-              quantity.
+              Some items in your cart are no longer
+              available in the requested quantity.
             </p>
           )}
 
-          {/* No checkout route exists yet — this button is a placeholder */}
           <Link
-  href="/checkout"
-  aria-disabled={hasStockIssue}
-  className={`mt-6 block w-full rounded bg-black py-3 text-center text-white ${
-    hasStockIssue
-      ? "pointer-events-none cursor-not-allowed opacity-40"
-      : ""
-  }`}
->
-  Proceed to checkout
-</Link>
+            href="/checkout"
+            aria-disabled={hasStockIssue}
+            className={`mt-6 block w-full rounded bg-black py-3 text-center text-white ${
+              hasStockIssue
+                ? "pointer-events-none cursor-not-allowed opacity-40"
+                : ""
+            }`}
+          >
+            Proceed to checkout
+          </Link>
 
-          {/* No payment integration exists — decorative only */}
           <button
             type="button"
             disabled
@@ -224,13 +277,18 @@ export default function CartPage() {
 
           <div className="mt-6 space-y-2 text-xs text-gray-500">
             <div className="flex items-center gap-2">
-              <Lock size={14} /> SSL secured checkout
+              <Lock size={14} />
+              SSL secured checkout
             </div>
+
             <div className="flex items-center gap-2">
-              <RotateCcw size={14} /> Free 30-day returns
+              <RotateCcw size={14} />
+              Free 30-day returns
             </div>
+
             <div className="flex items-center gap-2">
-              <Truck size={14} /> Free delivery over ₹75
+              <Truck size={14} />
+              Free delivery over ₹75
             </div>
           </div>
         </div>

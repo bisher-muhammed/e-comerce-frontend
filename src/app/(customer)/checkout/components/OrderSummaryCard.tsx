@@ -164,10 +164,7 @@ export function OrderSummaryCard({
               (img) => img.isPrimary
             ) ?? images[0];
 
-          const itemTotal =
-            Number(
-              item.productVariant.price
-            ) * item.quantity;
+          const itemTotal = item.finalPrice * item.quantity;
 
           return (
             <div
