@@ -1,12 +1,20 @@
 "use client";
 
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 import apiPublic from "@/app/lib/api/apiPublic";
+import { refreshSession } from "@/app/lib/api/apiPrivate";
 import { applyServerErrors } from "@/app/lib/api/formErrors";
+import { hasSessionHint, safeNextPath } from "@/app/lib/auth/session";
+import { CUSTOMER_STORAGE_PREFIX } from "@/app/lib/session/clientSessionData";
+import {
+  classifySessionError,
+  fetchCurrentUser,
+} from "@/app/hooks/useCurrentUser";
 import {
   loginSchema,
   type LoginInput,
@@ -17,8 +25,92 @@ const FORM_FIELDS = [
   "password",
 ] as const;
 
+const DEFAULT_DESTINATION = "/customer";
+
+const RESUME_GUARD_KEY = `${CUSTOMER_STORAGE_PREFIX}auth:resumed`;
+const RESUME_GUARD_WINDOW_MS = 30_000;
+
+function recentlyResumedTo(destination: string): boolean {
+  try {
+    const raw = window.sessionStorage.getItem(RESUME_GUARD_KEY);
+    const last = raw ? JSON.parse(raw) : null;
+
+    return (
+      last?.destination === destination &&
+      Date.now() - Number(last.at) < RESUME_GUARD_WINDOW_MS
+    );
+  } catch {
+    return false;
+  }
+}
+
+function rememberResume(destination: string) {
+  try {
+    window.sessionStorage.setItem(
+      RESUME_GUARD_KEY,
+      JSON.stringify({ destination, at: Date.now() })
+    );
+  } catch {}
+}
+
+async function resumeExistingSession(): Promise<boolean> {
+  try {
+    await fetchCurrentUser();
+    return true;
+  } catch (error) {
+    if (classifySessionError(error) !== "guest") return false;
+  }
+
+  if (hasSessionHint()) return false;
+
+  if ((await refreshSession()) !== "refreshed") return false;
+
+  try {
+    await fetchCurrentUser();
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
+  );
+}
+
+function LoginForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const destination =
+    safeNextPath(searchParams.get("next")) ?? DEFAULT_DESTINATION;
+
+  const [resuming, setResuming] = useState(true);
+  const [sessionNotKept, setSessionNotKept] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    resumeExistingSession().then((resumed) => {
+      if (cancelled) return;
+
+      if (resumed && !recentlyResumedTo(destination)) {
+        rememberResume(destination);
+        router.replace(destination);
+        return;
+      }
+
+      setSessionNotKept(resumed);
+      setResuming(false);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [destination, router]);
 
   const {
     register,
@@ -37,7 +129,7 @@ export default function LoginPage() {
       data
     );
 
-    router.replace("/customer");
+    router.replace(destination);
   } catch (error) {
     applyServerErrors(
       error,
@@ -204,6 +296,17 @@ export default function LoginPage() {
             )}
           </div>
 
+          {sessionNotKept && (
+            <p
+              role="status"
+              className="text-center text-sm text-muted-foreground"
+            >
+              You&apos;re signed in, but this page couldn&apos;t confirm
+              your session. Please sign in again; if this keeps
+              happening, allow cookies for this site.
+            </p>
+          )}
+
           {/* Server Error */}
 
           {errors.root && (
@@ -223,7 +326,7 @@ export default function LoginPage() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || resuming}
             className="
               h-11
               w-full
@@ -238,7 +341,11 @@ export default function LoginPage() {
               sm:h-12
             "
           >
-            {isSubmitting ? "Logging in..." : "Log in"}
+            {resuming
+              ? "Checking your session..."
+              : isSubmitting
+                ? "Logging in..."
+                : "Log in"}
           </button>
         </form>
 

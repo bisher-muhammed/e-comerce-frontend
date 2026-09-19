@@ -44,37 +44,33 @@ const featuredProducts = [
     id: 1,
     name: "Classic Denim Overshirt",
     category: "Casual Wear",
-    price: "$89",
     image: "/photos/featured-denim-overshirt.jpeg",
   },
   {
     id: 2,
     name: "Premium Oxford Dress Shirt",
     category: "Formal & Office",
-    price: "$99",
     image: "/photos/red-shirt-front.webp",
   },
   {
     id: 3,
     name: "Heavyweight Boxy Tee",
     category: "Oversized & Streetwear",
-    price: "$45",
     image: "/photos/featured-boxy-tee.jpeg",
   },
   {
     id: 4,
     name: "Relaxed Linen Button-Down",
     category: "New Arrivals",
-    price: "$79",
     image: "/photos/navy-blue3.jpg",
   },
 ];
 
-
 export default function HomePage() {
   return (
-    <main className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen bg-background text-foreground">
       {/* Hero */}
+
       <section className="mx-auto max-w-7xl px-6 py-20 lg:px-8 lg:py-28">
         <div className="grid items-center gap-12 lg:grid-cols-2">
           <div>
@@ -171,11 +167,11 @@ export default function HomePage() {
         </div>
       </section>
 
-
 {/* Featured Products */}
 <section className="mx-auto max-w-7xl px-6 py-20 lg:px-8">
   <div className="mb-10 flex items-end justify-between">
     <div>
+
       <p className="text-sm uppercase tracking-[0.15em] text-muted-foreground">
         Featured
       </p>
@@ -223,8 +219,8 @@ export default function HomePage() {
             </p>
           </div>
 
-          <span className="text-sm font-medium">
-            {product.price}
+          <span className="text-sm font-medium underline-offset-4 group-hover:underline">
+            Shop
           </span>
         </div>
       </Link>
@@ -232,11 +228,11 @@ export default function HomePage() {
   </div>
 </section>
 
-
       {/* CTA */}
       <section className="bg-primary text-primary-foreground">
         <div className="mx-auto max-w-7xl px-6 py-20 text-center lg:px-8 lg:py-28">
           <p className="text-sm uppercase tracking-[0.2em] opacity-70">
+
             Designed for everyday
           </p>
 
@@ -258,6 +254,6 @@ export default function HomePage() {
         </div>
       </section>
 
-    </main>
+    </div>
   );
 }

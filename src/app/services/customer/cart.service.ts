@@ -79,13 +79,25 @@ export interface CartItem {
 
   lineTotal: string;
   priceChanged: boolean;
+
+  isAvailable?: boolean;
 }
 
 export interface Cart {
   id: number | null;
   items: CartItem[];
   subtotal:string;
+  hasUnavailableItems?: boolean;
 }
+
+export const isCartLineBlocked = (item: CartItem): boolean =>
+  item.isAvailable === false ||
+  item.productVariant.stock === 0 ||
+  item.quantity > item.productVariant.stock;
+
+export const cartHasBlockingIssue = (cart: Cart): boolean =>
+  Boolean(cart.hasUnavailableItems) ||
+  cart.items.some(isCartLineBlocked);
 
 export interface CartResponse {
   success: boolean;

@@ -17,7 +17,7 @@ export default function ErrorState({
   error,
   reset,
   title = "Something went wrong",
-  description = "We could not load this page. The problem has been logged — trying again usually helps.",
+  description = "We could not load this page. Trying again usually helps.",
   homeHref = "/customer",
   homeLabel = "Continue shopping",
 }: ErrorStateProps) {

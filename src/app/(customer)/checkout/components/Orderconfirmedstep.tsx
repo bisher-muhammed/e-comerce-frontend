@@ -31,8 +31,8 @@ export function OrderConfirmedStep({
       </h1>
 
       <p className="mt-4 text-sm leading-6 text-muted-foreground">
-        Your order #{orderId} has been placed. A confirmation has been sent
-        to your email.
+        Your order #{orderId} has been placed. You can follow its status
+        from your orders page.
       </p>
 
       <p className="mt-1 text-sm text-muted-foreground">

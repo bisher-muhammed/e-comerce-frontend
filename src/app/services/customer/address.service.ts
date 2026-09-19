@@ -50,18 +50,6 @@ export const getAddresses = async (): Promise<AddressesResponse> => {
   return response.data;
 };
 
-// GET SINGLE ADDRESS
-
-export const getAddress = async (
-  id: number
-): Promise<AddressResponse> => {
-  const response = await apiPrivate.get<AddressResponse>(
-    `/customer/addresses/${id}`
-  );
-
-  return response.data;
-};
-
 // CREATE ADDRESS
 
 export const createAddress = async (

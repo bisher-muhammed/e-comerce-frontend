@@ -1,11 +1,13 @@
 import { z } from "zod";
 
+import { CUSTOMER_STORAGE_PREFIX } from "@/app/lib/session/clientSessionData";
+
 import {
   STEPS,
   type StepId,
 } from "../components/types";
 
-const DRAFT_KEY_PREFIX = "checkout:draft:v1:";
+const DRAFT_KEY_PREFIX = `${CUSTOMER_STORAGE_PREFIX}checkout:draft:v2:`;
 
 const draftKey = (cartId: number) =>
   `${DRAFT_KEY_PREFIX}${cartId}`;

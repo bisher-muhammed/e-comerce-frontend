@@ -4,12 +4,16 @@ import axios, {
   type InternalAxiosRequestConfig,
 } from "axios";
 
+import { hasSessionHint, loginPath } from "@/app/lib/auth/session";
+import { hardNavigate } from "@/app/lib/navigation";
+import { clearClientSessionData } from "@/app/lib/session/clientSessionData";
+
+import { API_URL, REQUEST_TIMEOUT_MS } from "./config";
+import { SessionUnavailableError } from "./errors";
+
 declare module "axios" {
   interface AxiosRequestConfig {
     /*
-     * Opt out of the "401 means the session is gone, send the browser
-     * to /auth/login" behaviour below.
-     *
      * Background and optional calls (the session probe, badge counts,
      * guest-visible coupons) must fail quietly — a logged-out visitor
      * has to be able to browse the storefront.
@@ -27,120 +31,100 @@ export const optionalAuthRequest: AxiosRequestConfig = {
 };
 
 const apiPrivate = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL,
+  baseURL: API_URL,
   withCredentials: true,
+  timeout: REQUEST_TIMEOUT_MS,
 });
 
 type RetryRequestConfig = InternalAxiosRequestConfig & {
   _retry?: boolean;
 };
 
-let isRefreshing = false;
+export type RefreshOutcome =
+  | "refreshed"
+  | "session-ended"
+  | "unavailable";
 
-let failedQueue: Array<{
-  resolve: () => void;
-  reject: (error: unknown) => void;
-}> = [];
+let refreshInFlight: Promise<RefreshOutcome> | null = null;
 
-const processQueue = (error?: unknown) => {
-  failedQueue.forEach(({ resolve, reject }) => {
-    if (error) {
-      reject(error);
-    } else {
-      resolve();
+export function refreshSession(): Promise<RefreshOutcome> {
+  refreshInFlight ??= (async (): Promise<RefreshOutcome> => {
+    try {
+      await axios.post(
+        `${API_URL}/auth/refresh-token`,
+        {},
+        {
+          withCredentials: true,
+          timeout: REQUEST_TIMEOUT_MS,
+        }
+      );
+
+      return "refreshed";
+    } catch (error) {
+      const status = axios.isAxiosError(error)
+        ? error.response?.status
+        : undefined;
+
+      return status === 401 || status === 403
+        ? "session-ended"
+        : "unavailable";
+    } finally {
+      refreshInFlight = null;
     }
-  });
+  })();
 
-  failedQueue = [];
-};
+  return refreshInFlight;
+}
+
+function redirectToLogin() {
+  if (typeof window === "undefined") return;
+
+  const { pathname, search, hash } = window.location;
+
+  if (pathname.startsWith("/auth/")) return;
+
+  hardNavigate(loginPath(`${pathname}${search}${hash}`));
+}
 
 apiPrivate.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
 
   async (error: AxiosError) => {
-    const originalRequest =
-      error.config as RetryRequestConfig;
+    const originalRequest = error.config as
+      | RetryRequestConfig
+      | undefined;
 
-    // Only handle 401 errors.
-    if (error.response?.status !== 401) {
+    if (
+      error.response?.status !== 401 ||
+      !originalRequest ||
+      originalRequest._retry
+    ) {
       return Promise.reject(error);
     }
 
-    /*
-     * Optional calls still attempt a refresh — a logged-in user with an
-     * expired access token should stay logged in — but a failed refresh
-     * leaves them where they are instead of bouncing them to login.
-     */
-    const redirectToLogin = () => {
-      if (originalRequest?.skipAuthRedirect) return;
-
-      if (typeof window === "undefined") return;
-
-      window.location.href = "/auth/login";
-    };
-
-    // Prevent infinite retry loops.
-    if (originalRequest._retry) {
+    if (originalRequest.skipAuthRedirect && !hasSessionHint()) {
       return Promise.reject(error);
     }
 
     originalRequest._retry = true;
 
-    /*
-     * Another request is already refreshing.
-     * Wait for that refresh to finish.
-     */
-    if (isRefreshing) {
-      return new Promise<void>((resolve, reject) => {
-        failedQueue.push({
-          resolve,
-          reject,
-        });
-      }).then(() => {
-        return apiPrivate(originalRequest);
-      });
-    }
+    const outcome = await refreshSession();
 
-    // This request becomes responsible for refreshing.
-    isRefreshing = true;
-
-    try {
-      /*
-       * Use normal axios here, not apiPrivate.
-       *
-       * The backend will verify the refresh_token cookie
-       * and set a new access_token cookie.
-       */
-      await axios.post(
-        `${process.env.NEXT_PUBLIC_API_URL}/auth/refresh-token`,
-        {},
-        {
-          withCredentials: true,
-        }
-      );
-
-      /*
-       * The browser now has the new access_token cookie.
-       */
-      processQueue();
-
-      // Retry the original request.
+    if (outcome === "refreshed") {
       return apiPrivate(originalRequest);
-    } catch (refreshError) {
-      /*
-       * Refresh token is expired/invalid.
-       * The session can no longer be recovered.
-       */
-      processQueue(refreshError);
-
-      redirectToLogin();
-
-      return Promise.reject(refreshError);
-    } finally {
-      isRefreshing = false;
     }
+
+    if (outcome === "session-ended") {
+      clearClientSessionData();
+
+      if (!originalRequest.skipAuthRedirect) {
+        redirectToLogin();
+      }
+
+      return Promise.reject(error);
+    }
+
+    return Promise.reject(new SessionUnavailableError());
   }
 );
 

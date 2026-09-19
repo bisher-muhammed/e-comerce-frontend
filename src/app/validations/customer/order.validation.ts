@@ -1,16 +1,40 @@
 import { z } from "zod";
 
+export const ORDER_STATUSES = [
+    "PENDING",
+    "CONFIRMED",
+    "SHIPPED",
+    "DELIVERED",
+    "CANCELLED",
+] as const;
+
+export const PAYMENT_METHODS = ["COD", "ONLINE"] as const;
+
+export const PAYMENT_STATUSES = [
+    "PENDING",
+    "PAID",
+    "FAILED",
+] as const;
+
+export type OrderStatus = (typeof ORDER_STATUSES)[number];
+
+export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
+
+export type PaymentStatus = (typeof PAYMENT_STATUSES)[number];
+
+const calendarDateSchema = z
+    .string()
+    .regex(
+        /^\d{4}-\d{2}-\d{2}$/,
+        "Dates must be in YYYY-MM-DD format"
+    );
+
 // ============================================================
 // ORDER PARAMS
 // ============================================================
 
 export const orderIdSchema = z.object({
     orderId: z.number().int().positive(),
-});
-
-export const orderItemParamsSchema = z.object({
-    orderId: z.number().int().positive(),
-    itemId: z.number().int().positive(),
 });
 
 // ============================================================
@@ -26,14 +50,7 @@ export const listOrdersSchema = z.object({
         .min(1)
         .max(50),
 
-    status: z
-        .enum([
-            "PENDING",
-            "CONFIRMED",
-            "CANCELLED",
-            "DELIVERED",
-        ])
-        .optional(),
+    status: z.enum(ORDER_STATUSES).optional(),
 
     search: z
         .string()
@@ -46,13 +63,9 @@ export const listOrdersSchema = z.object({
         .enum(["createdAt", "updatedAt"])
         .optional(),
 
-    startDate: z
-        .string()
-        .optional(),
+    startDate: calendarDateSchema.optional(),
 
-    endDate: z
-        .string()
-        .optional(),
+    endDate: calendarDateSchema.optional(),
 });
 
 // ============================================================
@@ -142,45 +155,3 @@ export const returnOrderItemSchema = z.object({
         .trim()
         .min(1),
 });
-
-// ============================================================
-// VERIFY PAYMENT
-// ============================================================
-
-export const verifyPaymentSchema = z.object({
-    orderId: z
-        .number()
-        .int()
-        .positive(),
-
-    razorpayPaymentId: z
-        .string()
-        .trim()
-        .min(1),
-
-    razorpaySignature: z
-        .string()
-        .trim()
-        .min(1),
-});
-
-// ============================================================
-// TYPES
-// ============================================================
-
-export type OrderStatus =
-    | "PENDING"
-    | "CONFIRMED"
-    | "CANCELLED"
-    | "DELIVERED";
-
-export type PaymentMethod =
-    | "COD"
-    | "ONLINE";
-
-export type PaymentStatus =
-    | "PENDING"
-    | "PAID"
-    | "FAILED";
-
-    

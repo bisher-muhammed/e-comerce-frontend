@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, CreditCard, MapPin, Truck } from "lucide-react";
+import Link from "next/link";
+import { Clock, CreditCard, MapPin, Truck } from "lucide-react";
 import type { Address } from "@/app/services/customer/address.service";
 import type { Cart } from "@/app/services/customer/cart.service";
 import type { CheckoutTotals, ContactInfo, PaymentMethod, StepId, } from "./types";
@@ -14,6 +15,10 @@ interface ReviewStepProps {
   hasStockIssue: boolean;
   placing: boolean;
   actionError: string;
+  pendingPayment: {
+    orderId: number;
+    expiresAtLabel: string | null;
+  } | null;
   onEdit: (step: StepId) => void;
   onPlaceOrder: () => void;
 }
@@ -27,6 +32,7 @@ export function ReviewCard({
   hasStockIssue,
   placing,
   actionError,
+  pendingPayment,
   onEdit,
   onPlaceOrder,
 }: ReviewStepProps) {
@@ -142,6 +148,39 @@ export function ReviewCard({
         </div>
       </div>
 
+      {pendingPayment && (
+        <div
+          role="status"
+          className="mt-6 max-w-xl rounded-xl border border-border bg-secondary/50 px-4 py-3 text-sm"
+        >
+          <div className="flex items-start gap-2">
+            <Clock size={14} className="mt-0.5 shrink-0" />
+
+            <div>
+              <p className="font-medium">
+                Payment not completed
+              </p>
+
+              <p className="mt-1 text-muted-foreground">
+                Order #{pendingPayment.orderId} is reserved for you
+                {pendingPayment.expiresAtLabel
+                  ? ` until ${pendingPayment.expiresAtLabel}`
+                  : ""}
+                . Complete the payment to confirm it — you can also pay
+                or cancel it from{" "}
+                <Link
+                  href={`/accounts/orders/${pendingPayment.orderId}`}
+                  className="underline underline-offset-4"
+                >
+                  your orders
+                </Link>
+                .
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {actionError && (
         <div className="mt-6 max-w-xl rounded-xl border border-destructive/20 bg-destructive/5 px-4 py-3 text-sm text-destructive">
           {actionError}
@@ -160,9 +199,11 @@ export function ReviewCard({
           )}
 
           {placing
-            ? paymentMethod === "ONLINE"
+            ? paymentMethod === "ONLINE" || pendingPayment
               ? "Opening payment..."
               : "Placing order..."
+            : pendingPayment
+            ? "Complete payment"
             : paymentMethod === "COD"
             ? "Place order"
             : `Pay ₹${totals.total.toFixed(2)}`}

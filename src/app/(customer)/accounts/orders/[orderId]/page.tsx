@@ -95,11 +95,11 @@ export default function OrderDetailsPage() {
 
     if (loading) {
         return (
-            <main className="mx-auto w-full max-w-5xl px-4 py-10">
+            <div className="mx-auto w-full max-w-5xl px-4 py-10">
                 <div className="rounded-xl border bg-white p-6 text-center text-sm text-gray-500">
                     Loading order...
                 </div>
-            </main>
+            </div>
         );
     }
 
@@ -109,13 +109,13 @@ export default function OrderDetailsPage() {
 
     if (error || !order) {
         return (
-            <main className="mx-auto w-full max-w-5xl px-4 py-10">
+            <div className="mx-auto w-full max-w-5xl px-4 py-10">
                 <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
                     <p className="text-sm text-red-600">
                         {error || "Order not found."}
                     </p>
                 </div>
-            </main>
+            </div>
         );
     }
 
@@ -124,8 +124,8 @@ export default function OrderDetailsPage() {
     // ========================================================
 
     return (
-        <main className="w-full">
+        <div className="w-full">
             <OrderDetails order={order} />
-        </main>
+        </div>
     );
 }

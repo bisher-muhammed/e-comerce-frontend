@@ -4,7 +4,9 @@ import { useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
-import { useCurrentUser } from "@/app/hooks/useCurrentUser";
+
+import { useStoreData } from "@/app/components/store/StoreDataProvider";
+import { loginPath } from "@/app/lib/auth/session";
 
 interface AccountLayoutProps {
   children: React.ReactNode;
@@ -21,26 +23,42 @@ export default function AccountLayout({
 }: AccountLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const { user, isLoading } = useCurrentUser();
+  const { user, sessionStatus, reloadUser } = useStoreData();
 
   /*
    * The account area is the one part of the storefront that genuinely
-   * requires a session. The API interceptor no longer redirects on the
-   * session probe — guests have to be able to browse — so the guard
-   * lives here, at the route boundary.
    */
   useEffect(() => {
-    if (!isLoading && !user) {
-      router.replace("/auth/login");
+    if (sessionStatus === "guest") {
+      router.replace(loginPath(pathname));
     }
-  }, [isLoading, user, router]);
+  }, [sessionStatus, pathname, router]);
+
+  if (sessionStatus === "unavailable") {
+    return (
+      <div className="mx-auto max-w-md px-6 py-20 text-center">
+        <p className="text-sm text-muted-foreground">
+          We couldn&apos;t load your account right now. Check your
+          connection and try again.
+        </p>
+
+        <button
+          type="button"
+          onClick={reloadUser}
+          className="mt-5 inline-flex h-10 items-center border border-border px-5 text-sm font-medium transition-colors hover:bg-secondary"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   if (!user) {
     return null;
   }
 
   return (
-    <main className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-6xl px-6 py-10">
         <div className="mb-10">
           <p className="text-xs font-medium tracking-wider text-muted-foreground">
@@ -90,6 +108,6 @@ export default function AccountLayout({
           <div>{children}</div>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

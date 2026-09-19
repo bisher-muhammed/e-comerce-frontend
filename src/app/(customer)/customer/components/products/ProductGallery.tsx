@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -25,11 +25,11 @@ export default function ProductGallery({
   const sorted = [...images].sort((a, b) => a.sortOrder - b.sortOrder);
   const [activeIndex, setActiveIndex] = useState(0);
 
-  useEffect(() => {
-    setActiveIndex(0);
-  }, [images]);
-
-  const active = sorted[activeIndex];
+  const safeIndex = Math.min(
+    activeIndex,
+    Math.max(sorted.length - 1, 0)
+  );
+  const active = sorted[safeIndex];
 
   if (sorted.length === 0) {
     return (
@@ -40,9 +40,13 @@ export default function ProductGallery({
   }
 
   const goPrev = () =>
-    setActiveIndex((i) => (i === 0 ? sorted.length - 1 : i - 1));
+    setActiveIndex(
+      safeIndex === 0 ? sorted.length - 1 : safeIndex - 1
+    );
   const goNext = () =>
-    setActiveIndex((i) => (i === sorted.length - 1 ? 0 : i + 1));
+    setActiveIndex(
+      safeIndex === sorted.length - 1 ? 0 : safeIndex + 1
+    );
 
   const hasDiscount = discountPercentage != null;
 
@@ -90,9 +94,12 @@ export default function ProductGallery({
           {sorted.map((image, index) => (
             <button
               key={image.id}
+              type="button"
+              aria-label={`Show image ${index + 1}`}
+              aria-current={index === safeIndex}
               onClick={() => setActiveIndex(index)}
               className={`relative aspect-3/4 overflow-hidden border transition-colors ${
-                index === activeIndex
+                index === safeIndex
                   ? "border-foreground"
                   : "border-border hover:border-foreground/40"
               }`}

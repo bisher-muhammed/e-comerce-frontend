@@ -1,7 +1,19 @@
 import { cache } from "react";
 
 import type { Product } from "@/app/(customer)/customer/components/products/ProductCard";
-import type { ProductPagination } from "@/app/services/customer/product.service";
+import {
+  API_URL,
+  SERVER_FETCH_TIMEOUT_MS,
+} from "@/app/lib/api/config";
+
+export interface ProductPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
+}
 
 export interface ServerProductList {
   products: Product[];
@@ -11,10 +23,13 @@ export interface ServerProductList {
 export const getProductBySlugServer = cache(
   async (slug: string): Promise<Product | null> => {
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/customer/products/${encodeURIComponent(
+      `${API_URL}/customer/products/${encodeURIComponent(
         slug
       )}`,
-      { cache: "no-store" }
+      {
+        cache: "no-store",
+        signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
+      }
     );
 
     if (response.status === 404) {
@@ -49,8 +64,11 @@ export const getProductsServer = cache(
     }
 
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/customer/products?${search.toString()}`,
-      { cache: "no-store" }
+      `${API_URL}/customer/products?${search.toString()}`,
+      {
+        cache: "no-store",
+        signal: AbortSignal.timeout(SERVER_FETCH_TIMEOUT_MS),
+      }
     );
 
     if (!response.ok) {

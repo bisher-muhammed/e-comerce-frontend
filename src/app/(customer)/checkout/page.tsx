@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 
 import {
+  cartHasBlockingIssue,
   getCart,
   type Cart,
 } from "@/app/services/customer/cart.service";
@@ -29,7 +30,9 @@ import {
 
 import {
   createCheckout,
+  payPendingOrder,
   verifyPayment,
+  type OrderSummary,
 } from "@/app/services/customer/checkout.service";
 
 import {
@@ -37,15 +40,27 @@ import {
 } from "@/app/lib/payments/loadRazorpayScript";
 
 import {
+  openRazorpayCheckout,
+  type RazorpayOrderInfo,
+} from "@/app/lib/payments/razorpayCheckout";
+
+import {
   getApiErrorMessage,
+  getApiErrorStatus,
 } from "@/app/lib/api/apiError";
+
+import { UserFacingError } from "@/app/lib/api/errors";
+
+import { createIdempotencyKey } from "@/app/lib/ids/idempotencyKey";
 
 import {
   validateCoupon,
+
   type CouponValidationResult,
 } from "@/app/services/customer/coupon.service";
 
 import { clearCheckoutDraft, readCheckoutDraft, reconcileDraftSteps, writeCheckoutDraft, } from "./lib/checkoutDraft";
+import { computeCheckoutTotals } from "./lib/checkoutTotals";
 
 import { CheckoutStepper } from "./components/Checkoutstepper";
 import { OrderSummaryCard } from "./components/OrderSummaryCard";
@@ -55,9 +70,7 @@ import { PaymentStep } from "./components/Paymentstep";
 import { ReviewCard } from "./components/ReviewCard";
 import { OrderConfirmedStep } from "./components/Orderconfirmedstep";
 
-
 import type {
-  CheckoutTotals,
   ContactInfo,
   PaymentMethod,
   StepId,
@@ -65,13 +78,34 @@ import type {
 
 import { useStoreData } from "@/app/components/store/StoreDataProvider";
 
+const revalidateCoupon = async (
+  code: string,
+  cart: Cart
+): Promise<CouponValidationResult | null> => {
+  try {
+    return await validateCoupon({
+      code,
+      subtotal: Number(cart.subtotal),
+    });
+  } catch {
+    return null;
+  }
+};
 
-const calculateSubtotal = (cart: Cart): number =>
-  cart.items.reduce(
-    (total, item) =>
-      total + item.finalPrice * item.quantity,
-    0
-  );
+const CART_MAY_HAVE_CHANGED = new Set([400, 404, 409, 422]);
+
+interface PendingPayment {
+  orderId: number;
+  razorpay: RazorpayOrderInfo;
+  expiresAt: string | null;
+  signature: string;
+}
+
+const formatTime = (iso: string) =>
+  new Date(iso).toLocaleTimeString("en-IN", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 
 export default function CheckoutPage() {
   const router = useRouter();
@@ -81,11 +115,13 @@ export default function CheckoutPage() {
   const [cart, setCart] =
     useState<Cart | null>(null);
 
+
   const [addresses, setAddresses] =
     useState<Address[]>([]);
 
   const [loading, setLoading] =
     useState(true);
+
 
   const [loadError, setLoadError] =
     useState("");
@@ -101,6 +137,7 @@ export default function CheckoutPage() {
     useState<StepId>("contact");
 
   const [completedSteps, setCompletedSteps] =
+
     useState<StepId[]>([]);
 
   // ============================================================
@@ -114,13 +151,11 @@ export default function CheckoutPage() {
       keepUpdated: true,
     });
 
-
   const [selectedAddressId, setSelectedAddressId] =
     useState<number | null>(null);
 
   const [paymentMethod, setPaymentMethod] =
     useState<PaymentMethod>("COD");
-
 
   const [appliedCoupon, setAppliedCoupon] =
     useState<CouponValidationResult | null>(
@@ -137,7 +172,6 @@ export default function CheckoutPage() {
   const [placing, setPlacing] =
     useState(false);
 
-
   // ============================================================
   // IDEMPOTENCY
   // ============================================================
@@ -151,14 +185,19 @@ export default function CheckoutPage() {
           cart?.items.map((item) => [
             item.productVariantId,
             item.quantity,
-            item.productVariant.price,
+            item.finalPrice,
+            item.lineTotal,
           ]) ?? [],
+
+        subtotal: cart?.subtotal ?? null,
 
         addressId: selectedAddressId,
 
         paymentMethod,
 
         contactEmail: contact.email
+
+
           .trim()
           .toLowerCase(),
 
@@ -166,6 +205,9 @@ export default function CheckoutPage() {
 
         couponCode:
           appliedCoupon?.coupon.code ?? null,
+
+        couponDiscount:
+          appliedCoupon?.discountAmount ?? null,
       }),
     [
       cart,
@@ -189,19 +231,25 @@ export default function CheckoutPage() {
     ) {
       idempotencyRef.current = {
         signature: orderSignature,
-        key: crypto.randomUUID(),
+        key: createIdempotencyKey(),
       };
     }
 
     return idempotencyRef.current.key;
   }, [orderSignature]);
 
-
-
   const [confirmedOrder, setConfirmedOrder] =
     useState<{
       id: string | number;
     } | null>(null);
+
+  const [storedPendingPayment, setPendingPayment] =
+    useState<PendingPayment | null>(null);
+
+  const pendingPayment =
+    storedPendingPayment?.signature === orderSignature
+      ? storedPendingPayment
+      : null;
 
   // ============================================================
   // LOAD CART + ADDRESSES
@@ -250,18 +298,15 @@ export default function CheckoutPage() {
           null;
 
         if (draft?.couponCode) {
-          try {
-            restoredCoupon =
-              await validateCoupon({
-                code: draft.couponCode,
-                subtotal:
-                  calculateSubtotal(
-                    loadedCart
-                  ),
-              });
-          } catch {
-            restoredCoupon = null;
-          }
+          restoredCoupon =
+            await revalidateCoupon(
+              draft.couponCode,
+              loadedCart
+            );
+        }
+
+        if (loadedCart.items.length === 0) {
+          clearCheckoutDraft(loadedCart.id);
         }
 
         if (cancelled) return;
@@ -317,51 +362,24 @@ export default function CheckoutPage() {
   }, []);
 
   // ============================================================
-  // SUBTOTAL
-  // ============================================================
-
-  const subtotal = useMemo(
-    () =>
-      cart
-        ? calculateSubtotal(cart)
-        : 0,
-    [cart]
-  );
-
-  // ============================================================
   // TOTALS
   // ============================================================
 
-  const totals = useMemo<CheckoutTotals>(() => {
-    const discountAmount = Math.min(
-      Math.max(
-        appliedCoupon?.discountAmount ?? 0,
-        0
+  const totals = useMemo(
+    () =>
+      computeCheckoutTotals(
+        cart ?? { subtotal: "0" },
+        appliedCoupon
       ),
-      subtotal
-    );
-
-    return {
-      subtotal,
-
-      discountAmount,
-
-      total: subtotal - discountAmount,
-    };
-  }, [subtotal, appliedCoupon]);
+    [cart, appliedCoupon]
+  );
 
   // ============================================================
   // STOCK CHECK
   // ============================================================
 
   const hasStockIssue = useMemo(
-    () =>
-      cart?.items.some(
-        (item) =>
-          item.productVariant.stock === 0 ||
-          item.quantity >
-            item.productVariant.stock
-      ) ?? false,
+    () => (cart ? cartHasBlockingIssue(cart) : false),
     [cart]
   );
 
@@ -430,11 +448,153 @@ export default function CheckoutPage() {
     goToStep(to);
   };
 
+  const reloadCheckoutCart = async (message: string) => {
+    try {
+      const freshCart = (await getCart()).data;
+
+      let coupon = appliedCoupon;
+      let note = "";
+
+      if (coupon) {
+        coupon = await revalidateCoupon(
+          coupon.coupon.code,
+          freshCart
+        );
+
+        if (!coupon) {
+          note = " Your coupon no longer applies to this order.";
+        }
+      }
+
+      setCart(freshCart);
+      setAppliedCoupon(coupon);
+      setActionError(`${message}${note}`);
+    } catch {
+      setActionError(message);
+    }
+
+    await refreshCart();
+  };
+
+  const finishOrder = async (orderId: number) => {
+    setPlacing(false);
+    setPendingPayment(null);
+
+    clearCheckoutDraft(cartId);
+
+    setConfirmedOrder({
+      id: orderId,
+    });
+
+    await refreshCart();
+  };
+
+  const collectPayment = async (
+    order: Pick<OrderSummary, "id" | "expiresAt">,
+    razorpay: RazorpayOrderInfo
+  ) => {
+    const outcome = await openRazorpayCheckout(
+      razorpay,
+      {
+        description: `Order #${order.id}`,
+        prefill: {
+          email: contact.email,
+          contact: contact.phone,
+        },
+      }
+    );
+
+    if (outcome.status === "dismissed") {
+      setPlacing(false);
+
+      setPendingPayment({
+        orderId: order.id,
+        razorpay,
+        expiresAt: order.expiresAt ?? null,
+        signature: orderSignature,
+      });
+
+      setActionError("");
+
+      await refreshCart();
+
+      return;
+    }
+
+    try {
+      await verifyPayment(outcome.payment);
+
+      await finishOrder(order.id);
+    } catch (err) {
+      setPlacing(false);
+
+      setActionError(
+        getApiErrorMessage(
+          err,
+          `Payment was received but we couldn't confirm order #${order.id} yet. Check your orders in a minute, or contact support with the order number.`
+        )
+      );
+    }
+  };
+
+  const handleResumePayment = async () => {
+    if (!pendingPayment) return;
+
+    setActionError("");
+    setPlacing(true);
+
+    let razorpay = pendingPayment.razorpay;
+    let expiresAt = pendingPayment.expiresAt;
+
+    try {
+      try {
+        const resumed = await payPendingOrder(
+          pendingPayment.orderId
+        );
+
+        if (resumed.data.razorpay) {
+          razorpay = resumed.data.razorpay;
+        }
+
+        expiresAt =
+          resumed.data.order.expiresAt ?? expiresAt;
+      } catch (err) {
+        if (getApiErrorStatus(err) !== 404) {
+          throw err;
+        }
+      }
+
+      await collectPayment(
+        { id: pendingPayment.orderId, expiresAt },
+        razorpay
+      );
+    } catch (err) {
+      setPlacing(false);
+
+      if (getApiErrorStatus(err) === 409) {
+        setPendingPayment(null);
+      }
+
+      setActionError(
+        getApiErrorMessage(
+          err,
+          "We couldn't reopen the payment. You can pay from your orders page."
+        )
+      );
+    }
+  };
+
   // ============================================================
   // PLACE ORDER / START PAYMENT
   // ============================================================
 
   const handlePlaceOrder = async () => {
+    if (pendingPayment) {
+      await handleResumePayment();
+
+      return;
+    }
+
     if (!selectedAddressId) {
       setActionError(
         "Select a delivery address before placing your order."
@@ -453,25 +613,37 @@ export default function CheckoutPage() {
       return;
     }
 
+    if (!cart) return;
+
+    if (totals.couponStale && appliedCoupon) {
+      setAppliedCoupon(
+        await revalidateCoupon(
+          appliedCoupon.coupon.code,
+          cart
+        )
+      );
+
+      setActionError(
+        "Your coupon was re-checked against the current total. Please review your order before placing it."
+      );
+
+      return;
+    }
+
     setActionError("");
     setPlacing(true);
 
     try {
-      /**
-       * IMPORTANT:
-       *
-       * We send only couponCode.
-       *
-       * We DO NOT send:
-       *
-       * discountAmount
-       * finalTotal
-       * subtotal
-       *
-       * as trusted coupon calculations.
-       *
-       * The backend must calculate the real discount again.
-       */
+      if (paymentMethod === "ONLINE") {
+        try {
+          await loadRazorpayScript();
+        } catch {
+          throw new UserFacingError(
+            "We couldn't load the payment window. Check your connection or ad blocker and try again, or choose Cash on Delivery."
+          );
+        }
+      }
+
       const response =
         await createCheckout({
           addressId: selectedAddressId,
@@ -482,15 +654,10 @@ export default function CheckoutPage() {
 
           contactPhone: contact.phone,
 
-          /**
-           * If no coupon is applied, this becomes undefined.
-           *
-           * If coupon is applied:
-           *
-           * "SUMMER50"
-           */
           couponCode:
             appliedCoupon?.coupon.code,
+
+          expectedTotal: totals.expectedTotal,
 
           idempotencyKey:
             takeIdempotencyKey(),
@@ -502,109 +669,34 @@ export default function CheckoutPage() {
         razorpay,
       } = response.data;
 
-      // ========================================================
-      // COD
-      // ========================================================
-
       if (mode === "COD") {
-        setPlacing(false);
-
-        clearCheckoutDraft(cartId);
-
-        setConfirmedOrder({
-          id: order.id,
-        });
-
-        await refreshCart();
+        await finishOrder(order.id);
 
         return;
       }
 
-      // ========================================================
-      // ONLINE
-      // ========================================================
-
       if (!razorpay) {
-        throw new Error(
-          "Missing Razorpay order details from server"
+        throw new UserFacingError(
+          `Order #${order.id} was created but its payment could not be started. You can pay for it from your orders page.`
         );
       }
 
-      await loadRazorpayScript();
-
-      const rzp =
-        new window.Razorpay({
-          key: razorpay.keyId,
-
-          amount: razorpay.amount,
-
-          currency: razorpay.currency,
-
-          order_id: razorpay.orderId,
-
-          name: "Store",
-
-          description:
-            `Order #${order.id}`,
-
-          theme: {
-            color: "#1A1917",
-          },
-
-          handler: async (
-            rzpResponse: {
-              razorpay_order_id: string;
-              razorpay_payment_id: string;
-              razorpay_signature: string;
-            }
-          ) => {
-            try {
-              await verifyPayment(
-                rzpResponse
-              );
-
-              setPlacing(false);
-
-              clearCheckoutDraft(cartId);
-
-              setConfirmedOrder({
-                id: order.id,
-              });
-
-              await refreshCart();
-            } catch (err) {
-              setPlacing(false);
-
-              setActionError(
-                getApiErrorMessage(
-                  err,
-                  "Payment was received but we couldn't confirm your order. Contact support with your order ID."
-                )
-              );
-            }
-          },
-
-          modal: {
-            ondismiss: () => {
-              setPlacing(false);
-
-              setActionError(
-                "Payment was cancelled."
-              );
-            },
-          },
-        });
-
-      rzp.open();
+      await collectPayment(order, razorpay);
     } catch (err) {
       setPlacing(false);
 
-      setActionError(
-        getApiErrorMessage(
-          err,
-          "Failed to start checkout"
-        )
+      const message = getApiErrorMessage(
+        err,
+        "Failed to start checkout"
       );
+
+      const status = getApiErrorStatus(err);
+
+      if (status !== undefined && CART_MAY_HAVE_CHANGED.has(status)) {
+        await reloadCheckoutCart(message);
+      } else {
+        setActionError(message);
+      }
     }
   };
 
@@ -657,6 +749,34 @@ export default function CheckoutPage() {
   }
 
   // ============================================================
+  // CONFIRMED
+  // ============================================================
+
+  if (confirmedOrder) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+          <OrderConfirmedStep
+            customerName={
+              selectedAddress?.firstName ??
+              "there"
+            }
+            orderId={confirmedOrder.id}
+            onTrackOrder={() =>
+              router.push(
+                `/accounts/orders/${confirmedOrder.id}`
+              )
+            }
+            onContinueShopping={() =>
+              router.push("/customer")
+            }
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // ============================================================
   // EMPTY CART
   // ============================================================
 
@@ -681,34 +801,6 @@ export default function CheckoutPage() {
         >
           Continue shopping
         </Link>
-      </div>
-    );
-  }
-
-  // ============================================================
-  // CONFIRMED
-  // ============================================================
-
-  if (confirmedOrder) {
-    return (
-      <div className="min-h-screen bg-background">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
-          <OrderConfirmedStep
-            customerName={
-              selectedAddress?.firstName ??
-              "there"
-            }
-            orderId={confirmedOrder.id}
-            onTrackOrder={() =>
-              router.push(
-                `/accounts/orders/${confirmedOrder.id}`
-              )
-            }
-            onContinueShopping={() =>
-              router.push("/customer")
-            }
-          />
-        </div>
       </div>
     );
   }
@@ -841,6 +933,14 @@ export default function CheckoutPage() {
                 }
                 placing={placing}
                 actionError={actionError}
+                pendingPayment={
+                  pendingPayment && {
+                    orderId: pendingPayment.orderId,
+                    expiresAtLabel: pendingPayment.expiresAt
+                      ? formatTime(pendingPayment.expiresAt)
+                      : null,
+                  }
+                }
                 onEdit={goToStep}
                 onPlaceOrder={
                   handlePlaceOrder

@@ -45,14 +45,21 @@ export const checkoutSchema = z.object({
     .uuid(
       "idempotencyKey must be a valid UUID"
     ),
+
+  expectedTotal: z
+    .string()
+    .regex(
+      /^\d{1,10}(\.\d{1,2})?$/,
+      "Invalid order total"
+    ),
+
+
 });
 
 export type CheckoutFormData =
   z.infer<
     typeof checkoutSchema
   >;
-
-
 
 export const verifyPaymentSchema =
   z.object({

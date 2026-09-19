@@ -1,10 +1,12 @@
 
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+
 import apiPrivate, {
   optionalAuthRequest,
 } from "@/app/lib/api/apiPrivate";
+import { getApiErrorStatus } from "@/app/lib/api/apiError";
 import type { UserRole } from "@/app/lib/auth/roles";
 
 export interface CurrentUser {
@@ -15,37 +17,67 @@ export interface CurrentUser {
   role: UserRole;
 }
 
+export type SessionStatus =
+  | "loading"
+  | "authenticated"
+  | "guest"
+  | "unavailable";
+
+export async function fetchCurrentUser(): Promise<CurrentUser> {
+  const response = await apiPrivate.get(
+    "/auth/me",
+    optionalAuthRequest
+  );
+
+  return response.data.data.user;
+}
+
+export function classifySessionError(
+  error: unknown
+): "guest" | "unavailable" {
+  const status = getApiErrorStatus(error);
+
+  return status === 401 || status === 403 ? "guest" : "unavailable";
+}
+
 export function useCurrentUser() {
   const [user, setUser] = useState<CurrentUser | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [status, setStatus] = useState<SessionStatus>("loading");
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
 
     (async () => {
       try {
-        /*
-         * This is a probe, not an assertion of access — a guest
-         * must get `user = null`, not a redirect to login.
-         */
-        const response = await apiPrivate.get(
-          "/auth/me",
-          optionalAuthRequest
-        );
+        const current = await fetchCurrentUser();
 
-        if (!cancelled) setUser(response.data.data.user);
-      } catch {
-        // 401 or network error — either way, no authenticated user.
-        if (!cancelled) setUser(null);
-      } finally {
-        if (!cancelled) setIsLoading(false);
+        if (cancelled) return;
+
+        setUser(current);
+        setStatus("authenticated");
+      } catch (error) {
+        if (cancelled) return;
+
+        setUser(null);
+        setStatus(classifySessionError(error));
       }
     })();
 
     return () => {
       cancelled = true;
     };
+  }, [attempt]);
+
+  const reload = useCallback(() => {
+    setStatus("loading");
+    setAttempt((value) => value + 1);
   }, []);
 
-  return { user, isLoading };
+  return {
+    user,
+    status,
+    isLoading: status === "loading",
+    reload,
+  };
 }

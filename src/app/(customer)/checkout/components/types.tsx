@@ -21,6 +21,8 @@ export interface CheckoutTotals {
   subtotal: number;
   discountAmount: number;
   total: number;
+  expectedTotal: string;
+  couponStale: boolean;
 }
 
 // Local-only helper so components don't need the full Address type reach-through.
