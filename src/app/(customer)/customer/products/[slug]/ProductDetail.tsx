@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import type { Product } from "@/app/(customer)/customer/components/products/ProductCard";
 import ProductGallery from "@/app/(customer)/customer/components/products/ProductGallery";
@@ -11,32 +11,35 @@ interface ProductDetailProps {
   children: ReactNode;
 }
 
-export default function ProductDetail({
-  product,
-  children,
-}: ProductDetailProps) {
+export default function ProductDetail({ product, children }: ProductDetailProps) {
   const [selectedColorId, setSelectedColorId] = useState<number | null>(() => {
     const firstAvailable =
-      product.colors.find((color) =>
-        color.variants.some((variant) => variant.stock > 0)
-      ) ?? product.colors[0];
+      product.colors.find((color) => color.variants.some((variant) => variant.stock > 0)) ??
+      product.colors[0];
 
     return firstAvailable?.id ?? null;
   });
 
-  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(
-    null
-  );
+  const [selectedVariantId, setSelectedVariantId] = useState<number | null>(null);
 
   const selectedColor =
-    product.colors.find((color) => color.id === selectedColorId) ??
-    product.colors[0];
+    product.colors.find((color) => color.id === selectedColorId) ?? product.colors[0];
+
+
+  const galleryDiscountPercentage = useMemo(() => {
+    const pcts = (selectedColor?.variants ?? [])
+      .map((v) => v.discountPercentage)
+      .filter((pct): pct is number => pct !== null);
+
+    return pcts.length > 0 ? Math.max(...pcts) : null;
+  }, [selectedColor]);
 
   return (
     <div className="grid gap-10 md:grid-cols-2">
       <ProductGallery
         images={selectedColor?.images ?? []}
         productName={product.name}
+        discountPercentage={galleryDiscountPercentage}
       />
 
       <div>
