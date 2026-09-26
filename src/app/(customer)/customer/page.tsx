@@ -136,11 +136,38 @@ function ProductGridSkeleton() {
   );
 }
 
-async function ProductGrid({ page }: { page: number }) {
-  const { products, pagination } = await getProductsServer(
-    page,
-    PRODUCTS_PER_PAGE
+function ProductGridUnavailable({ page }: { page: number }) {
+  return (
+    <div
+      role="alert"
+      className="border border-border bg-card px-6 py-16 text-center"
+    >
+      <p className="text-sm text-muted-foreground">
+        Products couldn&apos;t be loaded right now.
+      </p>
+
+      <Link
+        href={`/customer?page=${page}#products`}
+        className={`mt-5 inline-block ${PAGE_LINK_CLASSES}`}
+      >
+        Try again
+      </Link>
+    </div>
   );
+}
+
+async function ProductGrid({ page }: { page: number }) {
+  let result: Awaited<ReturnType<typeof getProductsServer>>;
+
+  try {
+    result = await getProductsServer(page, PRODUCTS_PER_PAGE);
+  } catch (error) {
+    console.error("Failed to load products", error);
+
+    return <ProductGridUnavailable page={page} />;
+  }
+
+  const { products, pagination } = result;
 
   const total = pagination?.total ?? products.length;
   const currentPage = pagination?.page ?? page;
@@ -226,7 +253,7 @@ export default async function CustomerPage({
   const page = parsePage(pageParam);
 
   return (
-    <main className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background">
       <div className="mx-auto max-w-7xl px-6 pt-10">
         <HeroBanner />
 
@@ -240,6 +267,6 @@ export default async function CustomerPage({
       </div>
 
       <HomeCoupons />
-    </main>
+    </div>
   );
 }

@@ -116,7 +116,10 @@ export default function AddressesPage() {
       setActionLoading(id);
       setError("");
       await deleteAddress(id);
-      setAddresses((prev) => prev.filter((a) => a.id !== id));
+
+      const response = await getAddresses();
+      setAddresses(response.data);
+
       toast.success("Address deleted.");
     } catch (error) {
       setError(getApiErrorMessage(error, "Unable to delete address"));

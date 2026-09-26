@@ -1,6 +1,7 @@
 import type { AxiosRequestConfig } from "axios";
 
 import apiPrivate from "@/app/lib/api/apiPrivate";
+import { UserFacingError } from "@/app/lib/api/errors";
 
 import {
   couponCodeSchema,
@@ -64,19 +65,16 @@ export interface CouponValidationResult {
 }
 
 export interface CouponClaimResult {
-  claim: CouponClaim;
+  id: number;
+  claimedAt: string;
 
-  coupon: {
-    id: number;
-    name: string;
-    code: string;
-  };
+  coupon: CouponValidationResult["coupon"];
 }
-
-
 
 interface GetCouponsResponse {
   success: boolean;
+
+
   data: CustomerCoupon[];
 }
 
@@ -91,17 +89,13 @@ interface ClaimCouponResponse {
   data: CouponClaimResult;
 }
 
-
-
 const COUPON_API_PATH = "/customer/coupons";
+
+
 
 // ============================================================
 // HELPERS
 // ============================================================
-
-export const normalizeCouponCode = (code: string): string => {
-  return code.trim().replace(/\s+/g, "").toUpperCase();
-};
 
 const toAmount = (value: unknown): number => {
   const amount = Number(value);
@@ -137,7 +131,7 @@ export const validateCoupon = async (
   const parsed = couponCodeSchema.safeParse(input.code);
 
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0].message);
+    throw new UserFacingError(parsed.error.issues[0].message);
   }
 
   const code = parsed.data;
@@ -173,7 +167,7 @@ export const claimCoupon = async (
   const parsed = couponCodeSchema.safeParse(code);
 
   if (!parsed.success) {
-    throw new Error(parsed.error.issues[0].message);
+    throw new UserFacingError(parsed.error.issues[0].message);
   }
 
   const normalizedCode = parsed.data;

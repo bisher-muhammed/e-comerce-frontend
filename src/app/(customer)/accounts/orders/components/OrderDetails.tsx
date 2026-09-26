@@ -4,7 +4,7 @@ import Image from "next/image";
 
 import Link from "next/link";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import {
     ArrowLeft,
@@ -13,6 +13,7 @@ import {
     CreditCard,
     MapPin,
     Package,
+    Truck,
     XCircle,
     RotateCcw,
     AlertTriangle,
@@ -21,12 +22,19 @@ import {
 import {
     cancelOrder,
     cancelOrderItem,
+    getOrderById,
     returnOrderItem,
-    newIdempotencyKey,
     type OrderDetails as OrderDetailsType,
     type OrderItem,
-    type OrderItemMutationResult,
+    type RefundOutcome,
+    type ReturnRequest,
+    type ReturnStatus,
 } from "@/app/services/customer/order.service";
+
+import {
+    payPendingOrder,
+    verifyPayment,
+} from "@/app/services/customer/checkout.service";
 
 import {
     cancelOrderSchema,
@@ -34,7 +42,18 @@ import {
     returnOrderItemSchema,
 } from "@/app/validations/customer/order.validation";
 
-import { getApiErrorMessage } from "@/app/lib/api/apiError";
+import {
+    getApiErrorMessage,
+    getApiErrorStatus,
+} from "@/app/lib/api/apiError";
+import { useIdempotencyKey } from "@/app/lib/ids/idempotencyKey";
+import { openRazorpayCheckout } from "@/app/lib/payments/razorpayCheckout";
+
+import {
+    ORDER_STATUS_LABELS,
+    ORDER_STATUS_STYLES,
+    PAYMENT_STATUS_STYLES,
+} from "./orderStatus";
 
 // ============================================================
 // PROPS
@@ -43,41 +62,6 @@ import { getApiErrorMessage } from "@/app/lib/api/apiError";
 interface OrderDetailsProps {
     order: OrderDetailsType;
 }
-
-// ============================================================
-// STYLES
-// ============================================================
-
-const STATUS_STYLES: Record<
-    OrderDetailsType["status"],
-    string
-> = {
-    PENDING:
-        "bg-yellow-100 text-yellow-700",
-
-    CONFIRMED:
-        "bg-blue-100 text-blue-700",
-
-    CANCELLED:
-        "bg-red-100 text-red-700",
-
-    DELIVERED:
-        "bg-green-100 text-green-700",
-};
-
-const PAYMENT_STATUS_STYLES: Record<
-    OrderDetailsType["paymentStatus"],
-    string
-> = {
-    PENDING:
-        "bg-yellow-100 text-yellow-700",
-
-    PAID:
-        "bg-green-100 text-green-700",
-
-    FAILED:
-        "bg-red-100 text-red-700",
-};
 
 // ============================================================
 // FORMATTERS
@@ -117,6 +101,54 @@ function formatDateTime(date: string) {
     );
 }
 
+const RETURN_WINDOW_DAYS = 30;
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const RETURN_STATUS_LABELS: Record<ReturnStatus, string> = {
+    REQUESTED: "Return requested",
+    APPROVED: "Return approved — please send the item back",
+    REJECTED: "Return declined",
+    RECEIVED: "Item received — refund in progress",
+    REFUNDED: "Refunded",
+};
+
+const RETURN_STATUS_STYLES: Record<ReturnStatus, string> = {
+    REQUESTED: "bg-yellow-100 text-yellow-700",
+    APPROVED: "bg-blue-100 text-blue-700",
+    REJECTED: "bg-red-100 text-red-700",
+    RECEIVED: "bg-indigo-100 text-indigo-700",
+    REFUNDED: "bg-green-100 text-green-700",
+};
+
+export function describeReturn(request: ReturnRequest): string {
+    if (request.status === "REFUNDED" && request.refundAmount) {
+        return `Refunded ${formatPrice(request.refundAmount)}`;
+    }
+
+    return RETURN_STATUS_LABELS[request.status];
+}
+
+export function describeRefund(
+    refund: RefundOutcome | null | undefined
+): string | null {
+    if (!refund) return null;
+
+    switch (refund.status) {
+        case "PROCESSED":
+            return `Refund of ${formatPrice(String(refund.amount))} initiated. It usually reaches your account in 5–7 business days.`;
+
+        case "PENDING":
+            return `Refund of ${formatPrice(String(refund.amount))} is being processed.`;
+
+        case "FAILED":
+            return "We couldn't refund automatically — our team will process your refund.";
+
+        default:
+            return null;
+    }
+}
+
 // ============================================================
 // ITEM ACTIONS
 // ============================================================
@@ -125,14 +157,20 @@ function ItemActions({
     orderId,
     item,
     orderStatus,
-    onUpdated,
+    itemCancelAllowed,
+    returnWindowOpen,
+    returnRequestCount,
+    onChanged,
 }: {
     orderId: number;
     item: OrderItem;
     orderStatus: OrderDetailsType["status"];
-    onUpdated: (
-        updated: OrderItemMutationResult
-    ) => void;
+    itemCancelAllowed: boolean;
+    returnWindowOpen: boolean;
+    returnRequestCount: (itemId: number) => number;
+    onChanged: (
+        notice?: string | null
+    ) => Promise<OrderDetailsType | null>;
 }) {
     const [qty, setQty] = useState(1);
 
@@ -150,11 +188,23 @@ function ItemActions({
     const [error, setError] =
         useState("");
 
+    const cancelKey = useIdempotencyKey();
+    const returnKey = useIdempotencyKey();
+
+    const actionSignature = (reasonText: string) =>
+        JSON.stringify([
+            item.id,
+            item.remainingQuantity,
+            qty,
+            reasonText,
+        ]);
+
     // ========================================================
     // PERMISSION
     // ========================================================
 
     const canCancel =
+        itemCancelAllowed &&
         (
             orderStatus === "PENDING" ||
             orderStatus === "CONFIRMED"
@@ -163,6 +213,7 @@ function ItemActions({
 
     const canReturn =
         orderStatus === "DELIVERED" &&
+        returnWindowOpen &&
         item.remainingQuantity > 0;
 
     // ========================================================
@@ -254,39 +305,39 @@ function ItemActions({
             setBusy(true);
             setError("");
 
-            // ------------------------------------------------
-            // Generate ONE key for this user action.
-            //
-            // If the same HTTP request is retried, the same
-            // key should be reused.
-            // ------------------------------------------------
-
-            const idempotencyKey =
-                newIdempotencyKey();
-
             const updated =
                 await cancelOrderItem(
                     orderId,
                     item.id,
                     qty,
-                    idempotencyKey,
+                    cancelKey.take(
+                        actionSignature(trimmedReason)
+                    ),
                     trimmedReason || undefined
                 );
 
-            // ------------------------------------------------
-            // Mutation response only contains mutable fields.
-            //
-            // Parent merges these fields into existing item.
-            // ------------------------------------------------
-
-            onUpdated(updated);
+            cancelKey.reset();
 
             closeForm();
+
+            await onChanged(describeRefund(updated.refund));
         } catch (err) {
-            console.error(
-                "Failed to cancel item:",
-                err
+            const fresh = await onChanged();
+
+            const freshItem = fresh?.items.find(
+                (candidate) => candidate.id === item.id
             );
+
+            if (
+                freshItem &&
+                freshItem.cancelledQuantity >=
+                    item.cancelledQuantity + qty
+            ) {
+                cancelKey.reset();
+                closeForm();
+                await onChanged("Your cancellation went through.");
+                return;
+            }
 
             setError(
                 getApiErrorMessage(
@@ -343,26 +394,42 @@ function ItemActions({
             setBusy(true);
             setError("");
 
-            const idempotencyKey =
-                newIdempotencyKey();
+            await returnOrderItem(
+                orderId,
+                item.id,
+                qty,
+                trimmedReason,
+                returnKey.take(
+                    actionSignature(trimmedReason)
+                )
+            );
 
-            const updated =
-                await returnOrderItem(
-                    orderId,
-                    item.id,
-                    qty,
-                    trimmedReason,
-                    idempotencyKey
-                );
-
-            onUpdated(updated);
+            returnKey.reset();
 
             closeForm();
-        } catch (err) {
-            console.error(
-                "Failed to submit return:",
-                err
+
+            await onChanged(
+                "Return requested. We'll review it and let you know the next step here."
             );
+        } catch (err) {
+            const requestsBefore =
+                returnRequestCount(item.id);
+
+            const fresh = await onChanged();
+
+            if (
+                fresh &&
+                (fresh.returns ?? []).filter(
+                    (request) => request.orderItemId === item.id
+                ).length > requestsBefore
+            ) {
+                returnKey.reset();
+                closeForm();
+                await onChanged(
+                    "Your return request went through."
+                );
+                return;
+            }
 
             setError(
                 getApiErrorMessage(
@@ -601,6 +668,57 @@ export default function OrderDetails({
     const [error, setError] =
         useState("");
 
+    const [notice, setNotice] =
+        useState("");
+
+    const [paying, setPaying] =
+        useState(false);
+
+    const [canResumePayment, setCanResumePayment] =
+        useState(true);
+
+    const cancelOrderKey = useIdempotencyKey();
+
+    const [now, setNow] = useState(() => Date.now());
+
+    useEffect(() => {
+        const timer = window.setInterval(
+            () => setNow(Date.now()),
+            30_000
+        );
+
+        return () => window.clearInterval(timer);
+    }, []);
+
+    const reloadOrder = useCallback(
+        async (
+            message?: string | null
+        ): Promise<OrderDetailsType | null> => {
+            let fresh: OrderDetailsType | null = null;
+
+            try {
+                fresh = await getOrderById(order.id);
+
+                setOrder(fresh);
+            } catch {}
+
+            if (message) {
+                setNotice(message);
+            }
+
+            return fresh;
+        },
+        [order.id]
+    );
+
+    const returnRequestCount = useCallback(
+        (itemId: number) =>
+            (order.returns ?? []).filter(
+                (request) => request.orderItemId === itemId
+            ).length,
+        [order.returns]
+    );
+
     // ========================================================
     // ORDER-LEVEL CANCEL
     // ========================================================
@@ -628,28 +746,39 @@ export default function OrderDetails({
         try {
             setCancelling(true);
             setError("");
+            setNotice("");
 
-            // Generate once for this cancellation action.
-            const idempotencyKey =
-                newIdempotencyKey();
-
-            const updatedOrder =
+            const { refund, ...updatedOrder } =
                 await cancelOrder(
                     order.id,
-                    idempotencyKey,
+                    cancelOrderKey.take(
+                        JSON.stringify([order.id, trimmedReason])
+                    ),
                     trimmedReason || undefined
                 );
+
+            cancelOrderKey.reset();
 
             setOrder(updatedOrder);
 
             setShowCancelForm(false);
 
             setCancelReason("");
-        } catch (err) {
-            console.error(
-                "Failed to cancel order:",
-                err
+
+            setNotice(
+                describeRefund(refund) ??
+                    "Your order has been cancelled."
             );
+        } catch (err) {
+            const fresh = await reloadOrder();
+
+            if (fresh?.status === "CANCELLED") {
+                cancelOrderKey.reset();
+                setShowCancelForm(false);
+                setCancelReason("");
+                setNotice("Your order has been cancelled.");
+                return;
+            }
 
             setError(
                 getApiErrorMessage(
@@ -663,25 +792,54 @@ export default function OrderDetails({
     }
 
     // ========================================================
-    // ITEM UPDATED
     // ========================================================
 
-    function handleItemUpdated(
-        updated: OrderItemMutationResult
-    ) {
-        setOrder((prev) => ({
-            ...prev,
+    async function handleCompletePayment() {
+        try {
+            setPaying(true);
+            setError("");
+            setNotice("");
 
-            items: prev.items.map(
-                (item) =>
-                    item.id === updated.id
-                        ? {
-                              ...item,
-                              ...updated,
-                          }
-                        : item
-            ),
-        }));
+            const { data } = await payPendingOrder(order.id);
+
+            if (!data.razorpay) {
+                throw new Error("Missing payment details");
+            }
+
+            const outcome = await openRazorpayCheckout(
+                data.razorpay,
+                {
+                    description: `Order #${order.id}`,
+                    prefill: {
+                        email: order.contactEmail,
+                        contact: order.contactPhone,
+                    },
+                }
+            );
+
+            if (outcome.status === "dismissed") {
+                return;
+            }
+
+            await verifyPayment(outcome.payment);
+
+            await reloadOrder("Payment received. Your order is confirmed.");
+        } catch (err) {
+            if (getApiErrorStatus(err) === 404) {
+                setCanResumePayment(false);
+            }
+
+            setError(
+                getApiErrorMessage(
+                    err,
+                    "We couldn't open the payment. Please try again."
+                )
+            );
+
+            await reloadOrder();
+        } finally {
+            setPaying(false);
+        }
     }
 
     // ========================================================
@@ -692,11 +850,32 @@ export default function OrderDetails({
         order.status === "PENDING" ||
         order.status === "CONFIRMED";
 
+    const itemCancelAllowed = !(
+        order.paymentMethod === "ONLINE" &&
+        order.paymentStatus !== "PAID"
+    );
+
     const showExpiryWarning =
         order.status === "PENDING" &&
         order.paymentMethod === "ONLINE" &&
         order.paymentStatus === "PENDING" &&
         Boolean(order.expiresAt);
+
+    const returnWindowOpen =
+        order.status === "DELIVERED" &&
+        (!order.deliveredAt ||
+            new Date(order.deliveredAt).getTime() +
+                RETURN_WINDOW_DAYS * DAY_MS >
+                now);
+
+    const itemNames = new Map(
+        order.items.map((item) => [item.id, item.productName])
+    );
+
+    const paymentWindowOpen =
+        showExpiryWarning &&
+        order.expiresAt !== null &&
+        new Date(order.expiresAt).getTime() > now;
 
     // ========================================================
     // UI
@@ -740,9 +919,9 @@ export default function OrderDetails({
                     </div>
 
                     <span
-                        className={`w-fit rounded-full px-4 py-2 text-sm font-medium ${STATUS_STYLES[order.status]}`}
+                        className={`w-fit rounded-full px-4 py-2 text-sm font-medium ${ORDER_STATUS_STYLES[order.status]}`}
                     >
-                        {order.status}
+                        {ORDER_STATUS_LABELS[order.status]}
                     </span>
 
                 </div>
@@ -780,18 +959,68 @@ export default function OrderDetails({
                                 className="mt-0.5 shrink-0"
                             />
 
-                            <p>
-                                Complete payment before{" "}
-                                {formatDateTime(
-                                    order.expiresAt
-                                )}{" "}
-                                or this order will be automatically cancelled.
-                            </p>
+                            <div className="flex-1">
+                                <p>
+                                    {paymentWindowOpen
+                                        ? "Complete payment before "
+                                        : "The payment window closed at "}
+                                    {formatDateTime(
+                                        order.expiresAt
+                                    )}
+                                    {paymentWindowOpen
+                                        ? " or this order will be automatically cancelled."
+                                        : ". This order will be cancelled automatically."}
+                                </p>
+
+                                {paymentWindowOpen &&
+                                    canResumePayment && (
+                                        <button
+                                            type="button"
+                                            onClick={
+                                                handleCompletePayment
+                                            }
+                                            disabled={paying}
+                                            className="mt-3 inline-flex items-center gap-2 rounded-lg bg-yellow-800 px-4 py-2 text-sm font-medium text-white transition hover:bg-yellow-900 disabled:cursor-not-allowed disabled:opacity-50"
+                                        >
+                                            <CreditCard size={16} />
+
+                                            {paying
+                                                ? "Opening payment..."
+                                                : `Complete payment · ${formatPrice(order.total)}`}
+                                        </button>
+                                    )}
+                            </div>
 
                         </div>
                     )}
 
+                {order.status === "SHIPPED" && (
+                    <div className="mt-4 flex items-start gap-2 rounded-lg bg-indigo-50 p-3 text-sm text-indigo-800">
+
+                        <Truck
+                            size={16}
+                            className="mt-0.5 shrink-0"
+                        />
+
+                        <p>
+                            Your order is on its way. It can no longer
+                            be cancelled; once it is delivered you can
+                            request a return.
+                        </p>
+
+                    </div>
+                )}
+
             </div>
+
+            {notice && (
+                <div
+                    role="status"
+                    className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-700"
+                >
+                    {notice}
+                </div>
+            )}
 
             {/* Global error */}
 
@@ -982,8 +1211,17 @@ export default function OrderDetails({
                                                 orderStatus={
                                                     order.status
                                                 }
-                                                onUpdated={
-                                                    handleItemUpdated
+                                                itemCancelAllowed={
+                                                    itemCancelAllowed
+                                                }
+                                                returnWindowOpen={
+                                                    returnWindowOpen
+                                                }
+                                                returnRequestCount={
+                                                    returnRequestCount
+                                                }
+                                                onChanged={
+                                                    reloadOrder
                                                 }
                                             />
 
@@ -995,6 +1233,61 @@ export default function OrderDetails({
                         </div>
 
                     </section>
+
+                    {order.returns && order.returns.length > 0 && (
+                        <section className="rounded-xl border bg-white">
+
+                            <div className="border-b p-5">
+                                <h2 className="flex items-center gap-2 font-semibold">
+                                    <RotateCcw size={19} />
+
+                                    Returns
+                                </h2>
+                            </div>
+
+                            <ul className="divide-y">
+                                {order.returns.map((request) => (
+                                    <li
+                                        key={request.id}
+                                        className="flex flex-col gap-2 p-5 text-sm sm:flex-row sm:items-start sm:justify-between"
+                                    >
+                                        <div>
+                                            <p className="font-medium">
+                                                {itemNames.get(
+                                                    request.orderItemId
+                                                ) ?? "Item"}{" "}
+                                                × {request.quantity}
+                                            </p>
+
+                                            <p className="mt-1 text-gray-500">
+                                                Requested on{" "}
+                                                {formatDate(
+                                                    request.createdAt
+                                                )}
+                                            </p>
+
+                                            {request.status ===
+                                                "REJECTED" &&
+                                                request.adminNote && (
+                                                    <p className="mt-1 text-red-600">
+                                                        {
+                                                            request.adminNote
+                                                        }
+                                                    </p>
+                                                )}
+                                        </div>
+
+                                        <span
+                                            className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${RETURN_STATUS_STYLES[request.status]}`}
+                                        >
+                                            {describeReturn(request)}
+                                        </span>
+                                    </li>
+                                ))}
+                            </ul>
+
+                        </section>
+                    )}
 
                     {/* Shipping */}
 
@@ -1244,9 +1537,9 @@ export default function OrderDetails({
                                     </button>
 
                                     <p className="mt-2 text-xs text-gray-400">
-                                        Or cancel individual
-                                        items below instead
-                                        of the whole order.
+                                        {itemCancelAllowed
+                                            ? "Or cancel individual items below instead of the whole order."
+                                            : "Individual items can be cancelled once the payment is complete."}
                                     </p>
                                 </>
                             ) : (
@@ -1346,11 +1639,9 @@ export default function OrderDetails({
                                     </p>
 
                                     <p className="mt-1 text-sm text-green-700">
-                                        This order was
-                                        successfully
-                                        delivered. You can
-                                        return individual
-                                        items above.
+                                        {returnWindowOpen
+                                            ? `This order was delivered. You can request a return for individual items above within ${RETURN_WINDOW_DAYS} days of delivery.`
+                                            : "This order was delivered. Its return window has closed."}
                                     </p>
 
                                 </div>

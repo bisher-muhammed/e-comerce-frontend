@@ -1,4 +1,13 @@
 import apiPrivate from "@/app/lib/api/apiPrivate";
+import { PAYMENT_REQUEST_TIMEOUT_MS } from "@/app/lib/api/config";
+import { UserFacingError } from "@/app/lib/api/errors";
+import type { RazorpayOrderInfo } from "@/app/lib/payments/razorpayCheckout";
+
+import type {
+  OrderStatus,
+  PaymentMethod,
+  PaymentStatus,
+} from "@/app/validations/customer/order.validation";
 
 import {
   checkoutSchema,
@@ -7,21 +16,15 @@ import {
   type VerifyPaymentFormData,
 } from "@/app/validations/customer/checkout.validation";
 
-
-
-export interface RazorpayCheckoutInfo {
-  orderId: string;
-  amount: number;
-  currency: string;
-  keyId: string;
-}
+export type RazorpayCheckoutInfo = RazorpayOrderInfo;
 
 export interface OrderSummary {
   id: number;
-  status: string;
-  paymentMethod: "COD" | "ONLINE";
-  paymentStatus: string;
+  status: OrderStatus;
+  paymentMethod: PaymentMethod;
+  paymentStatus: PaymentStatus;
   total: string;
+  expiresAt?: string | null;
 }
 
 export interface CheckoutResponse {
@@ -33,9 +36,9 @@ export interface CheckoutResponse {
     mode: "COD" | "ONLINE";
 
     razorpay?: RazorpayCheckoutInfo;
+
   };
 }
-
 
 export const createCheckout =
   async (
@@ -47,23 +50,24 @@ export const createCheckout =
       );
 
     if (!parsed.success) {
-      throw new Error(
+      throw new UserFacingError(
         parsed.error.issues[0]
           .message
+
       );
     }
-
 
     const response =
       await apiPrivate.post<CheckoutResponse>(
         "/customer/checkout",
-        parsed.data
+        parsed.data,
+        { timeout: PAYMENT_REQUEST_TIMEOUT_MS }
       );
+
+
 
     return response.data;
   };
-
-
 
 export interface VerifyPaymentResponse {
   success: boolean;
@@ -80,7 +84,7 @@ export const verifyPayment =
       );
 
     if (!parsed.success) {
-      throw new Error(
+      throw new UserFacingError(
         parsed.error.issues[0]
           .message
       );
@@ -89,7 +93,22 @@ export const verifyPayment =
     const response =
       await apiPrivate.post<VerifyPaymentResponse>(
         "/customer/checkout/verify",
-        parsed.data
+        parsed.data,
+        { timeout: PAYMENT_REQUEST_TIMEOUT_MS }
+      );
+
+    return response.data;
+  };
+
+export const payPendingOrder =
+  async (
+    orderId: number
+  ): Promise<CheckoutResponse> => {
+    const response =
+      await apiPrivate.post<CheckoutResponse>(
+        `/customer/orders/${orderId}/pay`,
+        {},
+        { timeout: PAYMENT_REQUEST_TIMEOUT_MS }
       );
 
     return response.data;

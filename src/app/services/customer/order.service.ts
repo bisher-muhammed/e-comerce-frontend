@@ -2,12 +2,10 @@ import apiPrivate from "@/app/lib/api/apiPrivate";
 
 import {
     orderIdSchema,
-    orderItemParamsSchema,
     listOrdersSchema,
     cancelOrderSchema,
     cancelOrderItemSchema,
     returnOrderItemSchema,
-    verifyPaymentSchema,
     type OrderStatus,
     type PaymentMethod,
     type PaymentStatus,
@@ -50,11 +48,8 @@ export interface OrderListItem {
 // ============================================================
 
 export interface OrderItemImage {
-    id: number;
     url: string;
     altText: string | null;
-    isPrimary: boolean;
-    sortOrder: number;
 }
 
 // ============================================================
@@ -87,6 +82,32 @@ export interface OrderItem {
             images?: OrderItemImage[];
         };
     };
+}
+
+export const RETURN_STATUSES = [
+    "REQUESTED",
+    "APPROVED",
+    "REJECTED",
+    "RECEIVED",
+    "REFUNDED",
+] as const;
+
+export type ReturnStatus = (typeof RETURN_STATUSES)[number];
+
+export interface ReturnRequest {
+    id: number;
+    orderId: number;
+    orderItemId: number;
+    quantity: number;
+    reason: string;
+    status: ReturnStatus;
+    adminNote: string | null;
+    refundAmount: string | null;
+    decidedAt: string | null;
+    receivedAt: string | null;
+    refundedAt: string | null;
+    createdAt: string;
+    updatedAt: string;
 }
 
 // ============================================================
@@ -148,6 +169,12 @@ export interface OrderDetails {
 
     cancellationReason: string | null;
 
+    deliveredAt?: string | null;
+
+    returnedAmount?: string;
+
+    returns?: ReturnRequest[];
+
     // ----------------------------------------------------------
     // ORDER TIMING
     // ----------------------------------------------------------
@@ -189,6 +216,28 @@ export interface OrderListResponse {
     pagination: OrderPagination;
 }
 
+export type RefundOutcome =
+    | { status: "SKIPPED"; reason?: string }
+    | {
+          status: "PROCESSED";
+          refundId: number;
+          amount: string | number;
+          razorpayRefundId?: string | null;
+      }
+    | {
+          status: "PENDING";
+          refundId: number;
+          amount: string | number;
+          razorpayRefundId?: string | null;
+          reason?: string;
+      }
+    | {
+          status: "FAILED";
+          refundId: number;
+          amount: string | number;
+          failureReason?: string;
+      };
+
 // ============================================================
 // ITEM MUTATION RESULT
 // ============================================================
@@ -196,34 +245,22 @@ export interface OrderListResponse {
 export interface OrderItemMutationResult {
     id: number;
 
-    orderId: number;
-
-    productVariantId: number;
-
-    productName: string;
-
-    colorName: string;
-
-    sizeName: string;
-
-    price: string;
-
-    quantity: number;
-
     remainingQuantity: number;
 
     cancelledQuantity: number;
 
     returnedQuantity: number;
+
+    updatedAt: string;
+
+    refund?: RefundOutcome | null;
+
+    returnRequest?: ReturnRequest;
 }
 
-// ============================================================
-// IDEMPOTENCY KEY
-// ============================================================
-
-export function newIdempotencyKey(): string {
-    return crypto.randomUUID();
-}
+export type CancelOrderResult = OrderDetails & {
+    refund?: RefundOutcome | null;
+};
 
 // ============================================================
 // GET ORDERS
@@ -282,7 +319,7 @@ export async function cancelOrder(
     orderId: number,
     idempotencyKey: string,
     reason?: string
-): Promise<OrderDetails> {
+): Promise<CancelOrderResult> {
     const validated = cancelOrderSchema.parse({
         orderId,
         idempotencyKey,
@@ -356,35 +393,6 @@ export async function returnOrderItem(
             quantity: validated.quantity,
             reason: validated.reason,
             idempotencyKey: validated.idempotencyKey,
-        }
-    );
-
-    return response.data.data;
-}
-
-// ============================================================
-// VERIFY PAYMENT
-// ============================================================
-
-export async function verifyPayment(
-    orderId: number,
-    razorpayPaymentId: string,
-    razorpaySignature: string
-): Promise<OrderDetails> {
-    const validated = verifyPaymentSchema.parse({
-        orderId,
-        razorpayPaymentId,
-        razorpaySignature,
-    });
-
-    const response = await apiPrivate.post(
-        `/customer/orders/${validated.orderId}/verify-payment`,
-        {
-            razorpayPaymentId:
-                validated.razorpayPaymentId,
-
-            razorpaySignature:
-                validated.razorpaySignature,
         }
     );
 

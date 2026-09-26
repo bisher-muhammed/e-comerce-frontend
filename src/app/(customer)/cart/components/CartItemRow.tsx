@@ -37,6 +37,7 @@ export default function CartItemRow({
     images.find((img) => img.isPrimary) ?? images[0];
 
   const stock = item.productVariant.stock;
+  const isUnavailable = item.isAvailable === false;
   const isOutOfStock = stock === 0;
   const exceedsStock = localQuantity > stock;
 
@@ -45,7 +46,9 @@ export default function CartItemRow({
     item.finalPrice < item.originalPrice;
 
   const handleQuantityChange = async (newQuantity: number) => {
-    if (newQuantity < 1 || newQuantity > stock) return;
+    if (newQuantity < 1) return;
+
+    if (newQuantity > localQuantity && newQuantity > stock) return;
 
     const previous = localQuantity;
 
@@ -72,7 +75,11 @@ export default function CartItemRow({
   };
 
   return (
-    <div className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-6 border-b border-gray-100 py-6">
+    <div
+      className={`grid grid-cols-[1fr_auto_auto_auto] items-center gap-6 border-b border-gray-100 py-6 ${
+        isUnavailable ? "opacity-60" : ""
+      }`}
+    >
       {/* Product */}
       <div className="flex min-w-0 items-center gap-4">
         <div className="relative h-24 w-20 shrink-0 overflow-hidden rounded bg-gray-100">
@@ -121,13 +128,25 @@ export default function CartItemRow({
             </p>
           )}
 
-          {isOutOfStock ? (
+          {isUnavailable ? (
+            <p className="mt-1 text-xs text-red-600">
+              No longer available — remove to continue
+            </p>
+          ) : isOutOfStock ? (
             <p className="mt-1 text-xs text-red-600">
               Currently out of stock
             </p>
           ) : exceedsStock ? (
             <p className="mt-1 text-xs text-red-600">
-              Only {stock} {stock === 1 ? "item" : "items"} available
+              Only {stock} {stock === 1 ? "item" : "items"} available.{" "}
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={() => handleQuantityChange(stock)}
+                className="underline underline-offset-2 disabled:opacity-40"
+              >
+                Reduce to {stock}
+              </button>
             </p>
           ) : stock <= 5 ? (
             <p className="mt-1 text-xs text-orange-600">
@@ -158,7 +177,7 @@ export default function CartItemRow({
           type="button"
           className="px-2 py-1 disabled:opacity-40"
           disabled={
-            isUpdating || localQuantity >= stock
+            isUpdating || isUnavailable || localQuantity >= stock
           }
           onClick={() =>
             handleQuantityChange(localQuantity + 1)
@@ -168,9 +187,8 @@ export default function CartItemRow({
         </button>
       </div>
 
-      {/* Total */}
       <div className="text-sm font-medium">
-        ₹{(price * localQuantity).toFixed(2)}
+        {isUnavailable ? "—" : `₹${Number(item.lineTotal).toFixed(2)}`}
       </div>
 
       {/* Remove */}

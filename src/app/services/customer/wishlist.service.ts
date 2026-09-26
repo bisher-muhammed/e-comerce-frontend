@@ -19,9 +19,43 @@ export interface WishlistSize {
 
 export interface WishlistVariant {
   id: number;
+
   price: string;
+
+  originalPrice?: number;
+  finalPrice?: number;
+  discountPercentage?: number | null;
+
   stock: number;
   size: WishlistSize;
+}
+
+export function lowestWishlistPrice(
+  variants: WishlistVariant[]
+): { price: number; originalPrice: number } | null {
+  let best: { price: number; originalPrice: number } | null = null;
+
+  for (const variant of variants) {
+    const base = Number(variant.price);
+
+    const price =
+      typeof variant.finalPrice === "number"
+        ? variant.finalPrice
+        : base;
+
+    const originalPrice =
+      typeof variant.originalPrice === "number"
+        ? variant.originalPrice
+        : base;
+
+    if (!Number.isFinite(price)) continue;
+
+    if (!best || price < best.price) {
+      best = { price, originalPrice };
+    }
+  }
+
+  return best;
 }
 
 export interface WishlistColor {
@@ -41,6 +75,7 @@ export interface WishlistProductColor {
 export interface WishlistProduct {
   id: number;
   name: string;
+
   slug: string;
   description: string | null;
   details: string | null;
@@ -54,6 +89,7 @@ export interface WishlistItem {
   product: WishlistProduct;
   createdAt: string;
   updatedAt: string;
+
 }
 
 export interface Wishlist {
@@ -69,12 +105,12 @@ export interface WishlistResponse {
   data: Wishlist | null;
 }
 
+
 export interface WishlistItemResponse {
   success: boolean;
   message: string;
   data: WishlistItem;
 }
-
 
 // GET WISHLIST
 
@@ -88,7 +124,6 @@ export const getWishlist = async (
 
   return response.data;
 };
-
 
 // ADD PRODUCT TO WISHLIST
 
@@ -104,7 +139,6 @@ export const addWishlistItem = async (
 
   return response.data;
 };
-
 
 // REMOVE PRODUCT FROM WISHLIST
 

@@ -144,6 +144,11 @@ export default function ProductCard({ product }: ProductCardProps) {
 
   const hasDiscount = bestDiscountPercentage !== null;
 
+  const showOriginalPrice =
+    lowestOriginalPrice !== null &&
+    lowestFinalPrice !== null &&
+    lowestOriginalPrice > lowestFinalPrice;
+
   // -----------------------------
   // STOCK
   // -----------------------------
@@ -335,13 +340,13 @@ export default function ProductCard({ product }: ProductCardProps) {
 
               <p
                 className={`text-sm font-semibold ${
-                  hasDiscount ? "text-green-700" : "text-foreground"
+                  showOriginalPrice ? "text-green-700" : "text-foreground"
                 }`}
               >
                 ₹{lowestFinalPrice.toFixed(2)}
               </p>
 
-              {hasDiscount && (
+              {showOriginalPrice && (
                 <span className="text-xs text-muted-foreground line-through">
                   ₹{lowestOriginalPrice!.toFixed(2)}
                 </span>

@@ -4,9 +4,10 @@ import Image from "next/image";
 import Link from "next/link";
 import { useState } from "react";
 import {
-  WishlistItem,
+  lowestWishlistPrice,
   removeWishlistItem,
-} from "@/app/services/customer/wishlist.service"
+  type WishlistItem,
+} from "@/app/services/customer/wishlist.service";
 
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
 import { useStoreData } from "@/app/components/store/StoreDataProvider";
@@ -48,14 +49,7 @@ export default function WishlistItemCard({
 
   const isOutOfStock = availableVariants.length === 0;
 
-  // Current minimum price
-  const prices = variants.map((variant) =>
-    Number(variant.price)
-  );
-
-  const minPrice = prices.length
-    ? Math.min(...prices)
-    : null;
+  const lowest = lowestWishlistPrice(variants);
 
   const handleRemove = async () => {
     try {
@@ -124,9 +118,14 @@ export default function WishlistItemCard({
           )}
         </h2>
 
-        {minPrice !== null && (
+        {lowest && (
           <p className="mt-2 font-medium">
-            From ₹{minPrice.toFixed(2)}
+            From ₹{lowest.price.toFixed(2)}
+            {lowest.originalPrice > lowest.price && (
+              <span className="ml-2 text-sm font-normal text-gray-400 line-through">
+                ₹{lowest.originalPrice.toFixed(2)}
+              </span>
+            )}
           </p>
         )}
 

@@ -5,6 +5,8 @@ import apiPrivate, {
   optionalAuthRequest,
 } from "@/app/lib/api/apiPrivate";
 import { useToast } from "@/app/components/feedback/ToastProvider";
+import { hardNavigate } from "@/app/lib/navigation";
+import { clearClientSessionData } from "@/app/lib/session/clientSessionData";
 
 export function useLogout() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
@@ -15,6 +17,8 @@ export function useLogout() {
 
     setIsLoggingOut(true);
 
+    clearClientSessionData();
+
     try {
       await apiPrivate.post(
         "/auth/logout",
@@ -22,7 +26,7 @@ export function useLogout() {
         optionalAuthRequest
       );
 
-      window.location.href = "/auth/login";
+      hardNavigate("/auth/login");
     } catch {
 
       setIsLoggingOut(false);

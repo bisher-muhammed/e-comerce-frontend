@@ -37,6 +37,7 @@ export default function ProductDetail({ product, children }: ProductDetailProps)
   return (
     <div className="grid gap-10 md:grid-cols-2">
       <ProductGallery
+        key={selectedColor?.id ?? "none"}
         images={selectedColor?.images ?? []}
         productName={product.name}
         discountPercentage={galleryDiscountPercentage}

@@ -17,11 +17,14 @@ import { optionalAuthRequest } from "@/app/lib/api/apiPrivate";
 import {
   useCurrentUser,
   type CurrentUser,
+  type SessionStatus,
 } from "@/app/hooks/useCurrentUser";
 
 interface StoreDataApi {
   user: CurrentUser | null;
   isLoadingUser: boolean;
+  sessionStatus: SessionStatus;
+  reloadUser: () => void;
 
   cartCount: number;
   wishlistCount: number;
@@ -74,7 +77,12 @@ export function StoreDataProvider({
 }: {
   children: ReactNode;
 }) {
-  const { user, isLoading: isLoadingUser } = useCurrentUser();
+  const {
+    user,
+    status: sessionStatus,
+    isLoading: isLoadingUser,
+    reload: reloadUser,
+  } = useCurrentUser();
 
   const [storedCartCount, setStoredCartCount] = useState(0);
   const [storedWishlistProductIds, setStoredWishlistProductIds] =
@@ -186,6 +194,8 @@ export function StoreDataProvider({
     () => ({
       user,
       isLoadingUser,
+      sessionStatus,
+      reloadUser,
       cartCount,
       wishlistCount: wishlistProductIds.size,
       wishlistProductIds,
@@ -197,6 +207,8 @@ export function StoreDataProvider({
     [
       user,
       isLoadingUser,
+      sessionStatus,
+      reloadUser,
       cartCount,
       wishlistProductIds,
       isWishlisted,

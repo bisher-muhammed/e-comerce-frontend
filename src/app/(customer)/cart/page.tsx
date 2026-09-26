@@ -14,6 +14,7 @@ import {
 import CartItemRow from "./components/CartItemRow";
 
 import {
+  cartHasBlockingIssue,
   getCart,
   updateCartItem,
   removeCartItem,
@@ -101,16 +102,9 @@ const handleUpdateQuantity = async (
 
       await removeCartItem(cartItemId);
 
-      setCart((prev) =>
-        prev
-          ? {
-              ...prev,
-              items: prev.items.filter(
-                (item) => item.id !== cartItemId
-              ),
-            }
-          : prev
-      );
+      const response = await getCart();
+
+      setCart(response.data);
 
       await refreshCart();
     } catch (err) {
@@ -151,11 +145,7 @@ const handleUpdateQuantity = async (
 
   const subtotal = Number(cart.subtotal);
 
-  const hasStockIssue = cart.items.some(
-    (item) =>
-      item.productVariant.stock === 0 ||
-      item.quantity > item.productVariant.stock
-  );
+  const hasStockIssue = cartHasBlockingIssue(cart);
 
   const itemCount = cart.items.reduce(
     (sum, item) => sum + item.quantity,
@@ -206,7 +196,7 @@ const handleUpdateQuantity = async (
 
           {cart.items.map((item) => (
             <CartItemRow
-              key={item.id}
+              key={`${item.id}:${item.quantity}`}
               item={item}
               onUpdateQuantity={handleUpdateQuantity}
               onRemove={handleRemove}
@@ -251,7 +241,8 @@ const handleUpdateQuantity = async (
           {hasStockIssue && (
             <p className="mt-3 text-sm text-red-600">
               Some items in your cart are no longer
-              available in the requested quantity.
+              available, or not in the requested quantity.
+              Remove or reduce them to continue.
             </p>
           )}
 
@@ -283,12 +274,12 @@ const handleUpdateQuantity = async (
 
             <div className="flex items-center gap-2">
               <RotateCcw size={14} />
-              Free 30-day returns
+              Returns within 30 days of delivery
             </div>
 
             <div className="flex items-center gap-2">
               <Truck size={14} />
-              Free delivery over ₹75
+              Free delivery on every order
             </div>
           </div>
         </div>

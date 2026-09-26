@@ -15,8 +15,6 @@ const eslintConfig = defineConfig([
   ]),
   {
     rules: {
-      // Every data-bearing page still loads through a client-side
-      // effect. Tracked as M1 in AUDIT.md — reported, not gated.
       "react-hooks/set-state-in-effect": "warn",
     },
   },

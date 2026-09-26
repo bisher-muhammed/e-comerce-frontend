@@ -7,11 +7,17 @@ import { CalendarDays, ChevronRight, Package, CreditCard, Search } from "lucide-
 import { getOrders, type OrderListItem } from "@/app/services/customer/order.service";
 import {
     listOrdersSchema,
+    ORDER_STATUSES,
     type OrderStatus,
-    type PaymentMethod,
-    type PaymentStatus,
 } from "@/app/validations/customer/order.validation";
 import { getApiErrorMessage } from "@/app/lib/api/apiError";
+
+import { buildOrderDateFilter } from "../lib/orderDateFilter";
+import {
+    ORDER_STATUS_LABELS,
+    ORDER_STATUS_STYLES,
+    PAYMENT_STATUS_STYLES,
+} from "./orderStatus";
 
 interface OrderListProps {
     initialStatus?: OrderStatus;
@@ -19,24 +25,11 @@ interface OrderListProps {
 
 const STATUS_TABS: { label: string; value: OrderStatus | undefined }[] = [
     { label: "All", value: undefined },
-    { label: "Pending", value: "PENDING" },
-    { label: "Confirmed", value: "CONFIRMED" },
-    { label: "Delivered", value: "DELIVERED" },
-    { label: "Cancelled", value: "CANCELLED" },
+    ...ORDER_STATUSES.map((value) => ({
+        label: ORDER_STATUS_LABELS[value],
+        value,
+    })),
 ];
-
-const STATUS_STYLES: Record<OrderStatus, string> = {
-    PENDING: "bg-yellow-100 text-yellow-700",
-    CONFIRMED: "bg-blue-100 text-blue-700",
-    CANCELLED: "bg-red-100 text-red-700",
-    DELIVERED: "bg-green-100 text-green-700",
-};
-
-const PAYMENT_STATUS_STYLES: Record<PaymentStatus, string> = {
-    PENDING: "bg-yellow-100 text-yellow-700",
-    PAID: "bg-green-100 text-green-700",
-    FAILED: "bg-red-100 text-red-700",
-};
 
 // Pull the search cap from the schema itself rather than hardcoding
 // 100 here — if the server-side limit changes, this stays in sync
@@ -90,11 +83,10 @@ export default function OrderList({ initialStatus }: OrderListProps) {
                 setLoading(true);
                 setError("");
 
-                // Guard against a startDate that's after endDate before
-                // it ever reaches the schema/server — the schema doesn't
-                // cross-check the two fields, so nothing else will catch this.
-                if (startDate && endDate && startDate > endDate) {
-                    setError("Start date must be before end date.");
+                const dates = buildOrderDateFilter(startDate, endDate);
+
+                if (!dates.ok) {
+                    setError(dates.error);
                     setLoading(false);
                     return;
                 }
@@ -103,8 +95,8 @@ export default function OrderList({ initialStatus }: OrderListProps) {
                     status,
                     search: search || undefined,
                     dateField,
-                    startDate: startDate ? new Date(startDate).toISOString() : undefined,
-                    endDate: endDate ? new Date(endDate).toISOString() : undefined,
+                    startDate: dates.startDate,
+                    endDate: dates.endDate,
                 });
 
                 setOrders(result.orders);
@@ -262,8 +254,8 @@ export default function OrderList({ initialStatus }: OrderListProps) {
                                 </div>
                             </div>
 
-                            <span className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${STATUS_STYLES[order.status]}`}>
-                                {order.status}
+                            <span className={`w-fit rounded-full px-3 py-1 text-xs font-medium ${ORDER_STATUS_STYLES[order.status]}`}>
+                                {ORDER_STATUS_LABELS[order.status]}
                             </span>
                         </div>
 
